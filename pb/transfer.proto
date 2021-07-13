@@ -1,0 +1,47 @@
+// protoc --proto_path .\pb\ --go_out=.  --go-grpc_out=. .\pb\transfer.proto
+syntax = "proto3";
+
+package pb;
+
+option go_package = "libs/;transfer";
+
+service FileTransferService {
+    rpc CheckServer(SayRequest) returns (SayResponse) {};
+    rpc SendMeta(MetaRequest) returns (MetaResponse) {};
+    rpc SendFile(stream FileRequest) returns (FileResponse) {};
+}
+
+message SayRequest {
+  bool ststus = 1;
+}
+
+message SayResponse {
+  bool status = 1;
+}
+
+// 文件名，文件大小，分片数量
+message MetaRequest {
+  string tag = 1;
+  string name = 2;
+  int64 size = 3;
+  int64 chunks = 4;
+  string hash = 5;
+}
+
+// 服务端是否接收数据
+message MetaResponse {
+  bool status = 1;
+  string message = 2;
+}
+
+// 文件类型，文件内容和分片
+message FileRequest {
+  bytes data = 2;
+  int64 chunk = 3;
+}
+
+// 服务端完成接收
+message FileResponse {
+  bool status = 1;
+  string message = 2;
+}
