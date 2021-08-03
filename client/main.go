@@ -38,31 +38,39 @@ func Run(address, filetag, filepath string) {
 	// 设置客户端超时时间
 	ctx, cancel := context.WithTimeout(context.Background(), clientTimeout*time.Second)
 	defer cancel()
-	// 获取证书
-	clientCert, clientKey := utils.ReadCertsCfg("client")
-	caCert, _ := utils.ReadCertsCfg("ca")
-	// 设置证书
-	cert, _ := tls.LoadX509KeyPair(clientCert, clientKey)
-	certPool := x509.NewCertPool()
-	ca, _ := ioutil.ReadFile(caCert)
-	certPool.AppendCertsFromPEM(ca)
 
-	creds := credentials.NewTLS(&tls.Config{
-		Certificates: []tls.Certificate{cert},
-		ServerName:   "127.0.0.1",
-		RootCAs:      certPool,
-	})
+	var conn *grpc.ClientConn
+	var err error
+	if utils.Debug {
+		conn, err = grpc.DialContext(ctx, BindAddress, grpc.WithInsecure(), grpc.WithBlock())
+	} else {
+		// 获取证书
+		clientCert, clientKey := utils.ReadCertsCfg("client")
+		caCert, _ := utils.ReadCertsCfg("ca")
+		// 设置证书
+		cert, _ := tls.LoadX509KeyPair(clientCert, clientKey)
+		certPool := x509.NewCertPool()
+		ca, _ := ioutil.ReadFile(caCert)
+		certPool.AppendCertsFromPEM(ca)
 
-	conn, err := grpc.DialContext(ctx, BindAddress, grpc.WithTransportCredentials(creds), grpc.WithBlock())
+		creds := credentials.NewTLS(&tls.Config{
+			Certificates: []tls.Certificate{cert},
+			ServerName:   "127.0.0.1",
+			RootCAs:      certPool,
+		})
+
+		conn, err = grpc.DialContext(ctx, BindAddress, grpc.WithTransportCredentials(creds), grpc.WithBlock())
+	}
+
 	if err != nil {
 		utils.PrintError("Connect Failed", err)
 	}
+
 	defer conn.Close()
 	// 设置 gRPC 客户端
 	client := pb.NewFileTransferServiceClient(conn)
 	FileStream(ctx, client, filetag, filepath)
 }
-
 
 func FileStream(ctx context.Context, client pb.FileTransferServiceClient, filetag, filepath string) {
 	// 获取文件属性

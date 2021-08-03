@@ -48,22 +48,26 @@ func Run(address, rootPath string) {
 		log.Fatalf("Listen Failed: %v", err)
 	}
 
-	// 获取证书
-	serverCert, serverKey := utils.ReadCertsCfg("server")
-	caCert, _ := utils.ReadCertsCfg("ca")
-	// 设置证书
-	cert, _ := tls.LoadX509KeyPair(serverCert, serverKey)
-	certPool := x509.NewCertPool()
-	ca, _ := ioutil.ReadFile(caCert)
-	certPool.AppendCertsFromPEM(ca)
+	var server *grpc.Server
+	if utils.Debug {
+		server = grpc.NewServer()
+	} else {
+		// 获取证书
+		serverCert, serverKey := utils.ReadCertsCfg("server")
+		caCert, _ := utils.ReadCertsCfg("ca")
+		// 设置证书
+		cert, _ := tls.LoadX509KeyPair(serverCert, serverKey)
+		certPool := x509.NewCertPool()
+		ca, _ := ioutil.ReadFile(caCert)
+		certPool.AppendCertsFromPEM(ca)
 
-	creds := credentials.NewTLS(&tls.Config{
-		Certificates: []tls.Certificate{cert},
-		ClientAuth:   tls.RequireAndVerifyClientCert,
-		ClientCAs:    certPool,
-	})
-
-	server := grpc.NewServer(grpc.Creds(creds))
+		creds := credentials.NewTLS(&tls.Config{
+			Certificates: []tls.Certificate{cert},
+			ClientAuth:   tls.RequireAndVerifyClientCert,
+			ClientCAs:    certPool,
+		})
+		server = grpc.NewServer(grpc.Creds(creds))
+	}
 	pb.RegisterFileTransferServiceServer(server, &FileService{})
 	server.Serve(listenAddress)
 }
@@ -78,8 +82,9 @@ func (s *FileService) CheckServer(ctx context.Context, in *pb.SayRequest) (*pb.S
 func (s *FileService) SendMeta(ctx context.Context, in *pb.MetaRequest) (*pb.MetaResponse, error) {
 	filetag := in.GetTag()
 	filename := in.GetName()
+	filehash := in.GetHash()
 
-	if utils.CheckFile(DirPath, filetag, filename) {
+	if utils.CheckFile(DirPath, filetag, filename, filehash) {
 		return &pb.MetaResponse{Status: false, Message: "File already exists"}, nil
 	}
 
@@ -87,7 +92,7 @@ func (s *FileService) SendMeta(ctx context.Context, in *pb.MetaRequest) (*pb.Met
 	s.filename = filename
 	s.filesize = in.GetSize()
 	s.filechunks = in.GetChunks()
-	s.filehash = in.GetHash()
+	s.filehash = filehash
 	log.Println("Waiting for the client to send the file...")
 	return &pb.MetaResponse{Status: true, Message: "Please send the file"}, nil
 }

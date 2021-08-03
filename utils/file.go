@@ -28,8 +28,13 @@ func SetSavePath(dirPath, filetag, filename string) string {
 }
 
 // CheckFile 检查文件存在
-func CheckFile(dirPath, filetag, filename string) bool {
+func CheckFile(dirPath, filetag, filename, filehash string) bool {
 	savefile := SetSavePath(dirPath, filetag, filename)
+	oldFilehash := CalcMD5(savefile)
+	if oldFilehash != filehash {
+		os.Remove(savefile)
+		return false
+	}
 	_, err := os.Stat(savefile)
 	return err == nil
 }
