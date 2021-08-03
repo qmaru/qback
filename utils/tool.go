@@ -28,7 +28,13 @@ func CalcMD5(filepath string) string {
 
 // 读取证书信息
 func ReadCertsCfg(t string) (certFile, keyFile string) {
-	root, _ := os.Getwd()
+	debug := false
+	var root string
+	if debug {
+		root, _ = os.Getwd()
+	} else {
+		root, _ = filepath.Abs(filepath.Dir(os.Args[0]))
+	}
 	certRoot := filepath.Join(root, "certs")
 	_, err := os.Stat(certRoot)
 	if err != nil {
