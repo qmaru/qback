@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"log"
+
 	"qBack/server"
 
 	"github.com/spf13/cobra"
@@ -13,7 +15,15 @@ var (
 		Use:   "server",
 		Short: "Run Server",
 		Run: func(cmd *cobra.Command, args []string) {
-			server.Run(listenAddress, rootPath)
+			if listenAddress != "" {
+				if a, ok := AddressChecker(listenAddress); ok {
+					server.Run(listenAddress, rootPath)
+				} else {
+					log.Printf("%s is Error HOST:PORT", a)
+				}
+			} else {
+				server.Run(listenAddress, rootPath)
+			}
 		},
 	}
 )

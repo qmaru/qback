@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"log"
+
 	"qBack/client"
 
 	"github.com/spf13/cobra"
@@ -14,7 +16,15 @@ var (
 		Use:   "client",
 		Short: "Run Client",
 		Run: func(cmd *cobra.Command, args []string) {
-			client.Run(connectAddress, fileTag, filePath)
+			if connectAddress != "" {
+				if a, ok := AddressChecker(connectAddress); ok {
+					client.Run(connectAddress, fileTag, filePath)
+				} else {
+					log.Printf("%s is Error HOST:PORT", a)
+				}
+			} else {
+				client.Run(connectAddress, fileTag, filePath)
+			}
 		},
 	}
 )

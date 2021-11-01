@@ -11,14 +11,14 @@ import (
 
 // PrintError 统一输出格式
 func PrintError(msg string, err error) {
-	log.Fatalf("[message]: %s [error]: %v", msg, err)
+	log.Panicf("[message]: %s [error]: %v\n", msg, err)
 }
 
 // CalcMD5 计算文件 MD5
 func CalcMD5(filepath string) string {
 	fData, err := os.Open(filepath)
 	if err != nil {
-		PrintError("Open File Error", err)
+		return ""
 	}
 	defer fData.Close()
 	md5hash := md5.New()

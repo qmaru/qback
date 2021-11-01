@@ -24,6 +24,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
 )
 
 var (
@@ -74,6 +75,8 @@ func Run(address, rootPath string) {
 
 func (s *FileService) CheckServer(ctx context.Context, in *pb.SayRequest) (*pb.SayResponse, error) {
 	if in.GetStstus() {
+		pr, _ := peer.FromContext(ctx)
+		log.Printf("Client From: %s\n", pr.Addr.String())
 		return &pb.SayResponse{Status: true}, nil
 	}
 	return &pb.SayResponse{Status: false}, nil
@@ -85,7 +88,7 @@ func (s *FileService) SendMeta(ctx context.Context, in *pb.MetaRequest) (*pb.Met
 	filehash := in.GetHash()
 
 	if utils.CheckFile(DirPath, filetag, filename, filehash) {
-		return &pb.MetaResponse{Status: false, Message: "File already exists"}, nil
+		return &pb.MetaResponse{Status: false, Message: "File Already Exists"}, nil
 	}
 
 	s.filetag = filetag
@@ -98,7 +101,10 @@ func (s *FileService) SendMeta(ctx context.Context, in *pb.MetaRequest) (*pb.Met
 }
 
 func (s *FileService) SendFile(stream pb.FileTransferService_SendFileServer) error {
-	recFile := utils.CreateSaveFile(DirPath, s.filetag, s.filename)
+	recFile, err := utils.CreateSaveFile(DirPath, s.filetag, s.filename)
+	if err != nil {
+		stream.SendAndClose(&pb.FileResponse{Status: false, Message: "Server Receive Failed"})
+	}
 	defer recFile.Close()
 	for {
 		res, err := stream.Recv()
@@ -112,7 +118,11 @@ func (s *FileService) SendFile(stream pb.FileTransferService_SendFileServer) err
 		if err == io.EOF {
 			savefile := utils.SetSavePath(DirPath, s.filetag, s.filename)
 			recMd5 := utils.CalcMD5(savefile)
+			if recMd5 == "" {
+				return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "Server Receive Failed"})
+			}
 			if recMd5 == s.filehash {
+				log.Printf("Server Receive Succeed")
 				return stream.SendAndClose(&pb.FileResponse{Status: true, Message: "Server Receive Succeed"})
 			}
 			return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "File Hash Error"})

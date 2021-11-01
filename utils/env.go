@@ -1,3 +1,3 @@
 package utils
 
-const Debug bool = true
+const Debug bool = false
