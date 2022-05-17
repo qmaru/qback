@@ -1,25 +1,29 @@
-// protoc --proto_path .\pb\ --go_out=.  --go-grpc_out=. .\pb\transfer.proto
+// protoc --proto_path .\grpc\pb\ --go_out=. --go-grpc_out=. .\grpc\pb\transfer.proto
 syntax = "proto3";
 
 package pb;
 
-option go_package = "libs/;transfer";
+option go_package = "grpc/libs/;libs";
 
 service FileTransferService {
-    rpc CheckServer(SayRequest) returns (SayResponse) {};
+    rpc ServerCheck (Ping) returns (Pong) {};
     rpc SendMeta(MetaRequest) returns (MetaResponse) {};
     rpc SendFile(stream FileRequest) returns (FileResponse) {};
 }
 
-message SayRequest {
-  bool ststus = 1;
-}
-
-message SayResponse {
+message Ping {
   bool status = 1;
 }
 
-// 文件名，文件大小，分片数量
+message Pong {
+  bool status = 1;
+}
+
+// tag 标签
+// name 文件名
+// size 文件大小
+// chunks 分片数量
+// hash 文件 MD5
 message MetaRequest {
   string tag = 1;
   string name = 2;
@@ -36,8 +40,8 @@ message MetaResponse {
 
 // 文件类型，文件内容和分片
 message FileRequest {
-  bytes data = 2;
-  int64 chunk = 3;
+  bytes data = 1;
+  int64 chunk = 2;
 }
 
 // 服务端完成接收

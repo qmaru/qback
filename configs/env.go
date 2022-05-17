@@ -1,3 +1,3 @@
-package utils
+package configs
 
 const Debug bool = false
