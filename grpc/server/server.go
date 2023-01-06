@@ -58,7 +58,7 @@ func loggerMid(ctx context.Context, info *grpc.UnaryServerInfo) error {
 }
 
 // logInterceptor 日志拦截器
-func logInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+func logInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 	// 输出日志
 	err := loggerMid(ctx, info)
 	if err != nil {

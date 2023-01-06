@@ -14,7 +14,7 @@ var (
 	rootCmd = &cobra.Command{
 		Use:     "qBack",
 		Short:   "qBack is a File Transfer Service",
-		Version: "1.0-220517",
+		Version: "1.0-230106",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
 		},
