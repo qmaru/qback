@@ -1,10 +1,12 @@
 /*
 服务端接收文件流程：
+
 	1.接收客户端发送的 meta 数据，包含文件名(name)，文件大小(size)，文件分片数(chunks)，文件哈希值(hash)
 	2.接收客户端的流数据
 	3.校验哈希值
 
 服务端预处理的事项：
+
 	1.根据文件名和标签创建文件夹
 	2.接收文件并计算进度
 */
@@ -127,7 +129,7 @@ func (s *FileService) SendMeta(ctx context.Context, in *pb.MetaRequest) (*pb.Met
 	s.fileSize = in.GetSize()
 	s.fileChunks = in.GetChunks()
 	s.fileHash = fileHash
-	return &pb.MetaResponse{Status: true, Message: "Please send the file"}, nil
+	return &pb.MetaResponse{Status: true, Message: "The server allows receiving"}, nil
 }
 
 func (s *FileService) SendFile(stream pb.FileTransferService_SendFileServer) error {

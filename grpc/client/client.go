@@ -1,13 +1,15 @@
 /*
 客户端发送文件流程：
+
 	1.向服务端发送 meta 数据，包含文件名(name)，文件大小(size)，文件分片数(chunks)，文件哈希值(hash)
 	2.服务端验证通过后，客户端向服务端推送文件流，包含数据(data)，当前分片(chunk)，文件标签(tag)
 	3.推送完成后客户端关闭连接
 
 客户端预处理的事项：
+
 	1.计算待发送文件的哈希值(hash)
 	2.根据分片大小计算分片数量(chunks)
-	3.分片大小为 1MB
+	3.分片大小默认为 1MB
 */
 package client
 
@@ -26,15 +28,12 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-const (
-	chunksize int64 = 1 << 20 // 1M
-)
-
 type ClientBasic struct {
 	conn          *grpc.ClientConn
 	ctx           context.Context
 	cancel        context.CancelFunc
 	Timeout       int
+	Chunksize     int
 	ServerAddress string
 	Secure        bool
 }
@@ -105,12 +104,17 @@ func (c *ClientBasic) FileStream(fileTag, filePath string) (string, error) {
 	}
 	fileName := fileInfo.Name()
 	fileSize := fileInfo.Size()
-	fileChunks := int64(math.Ceil(float64(fileSize) / float64(chunksize)))
+	fileChunks := int64(math.Ceil(float64(fileSize) / float64(c.Chunksize)))
 	fileHash, err := common.CalcMD5(filePath)
 	if err != nil {
 		return "", err
 	}
 	// 发送 meta 数据
+	log.Println("Sending metadata")
+	log.Printf("  -- Name: %s", fileName)
+	log.Printf("  -- Size: %d Byte", fileSize)
+	log.Printf("  -- Chunk: %d Byte ", c.Chunksize)
+	log.Printf("  -- Count: %d", fileChunks)
 	res, err := client.SendMeta(c.ctx, &pb.MetaRequest{
 		Name:   fileName,
 		Size:   fileSize,
@@ -134,10 +138,10 @@ func (c *ClientBasic) FileStream(fileTag, filePath string) (string, error) {
 			}
 			defer fileBody.Close()
 			// 发送文件
-			buffer := make([]byte, chunksize)
+			buffer := make([]byte, c.Chunksize)
 			for chunk := int64(1); chunk <= fileChunks; chunk++ {
 				// 计算分片大小
-				fileChunksize := (chunk - 1) * chunksize
+				fileChunksize := (chunk - 1) * int64(c.Chunksize)
 				// 设置偏移量
 				fileBody.Seek(fileChunksize, 0)
 				// 设置最后的分片的偏移量

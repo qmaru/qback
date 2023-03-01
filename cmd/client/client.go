@@ -2,6 +2,7 @@ package client
 
 import (
 	"log"
+	"time"
 
 	"qBack/grpc/client"
 
@@ -14,6 +15,7 @@ var (
 	address    string
 	secure     bool
 	timeout    int
+	fileChunk  int
 	ClientRoot = &cobra.Command{
 		Use:   "client",
 		Short: "Run Client",
@@ -32,6 +34,7 @@ var (
 			c.ServerAddress = address
 			c.Timeout = 1800
 			c.Secure = secure
+			c.Chunksize = fileChunk
 			result, err := c.FileStream(sourceTag, sourceFile)
 			if err != nil {
 				log.Fatal(err)
@@ -50,11 +53,14 @@ var (
 			c.ServerAddress = address
 			c.Timeout = timeout
 			c.Secure = secure
+			startTime := time.Now().UnixMilli()
 			err := c.ServerCheck()
 			if err != nil {
 				log.Printf("Server is down: %s\n", err.Error())
 			} else {
-				log.Println("Server is up")
+				endTime := time.Now().UnixMilli()
+				delay := endTime - startTime
+				log.Printf("Server is up [%d ms]\n", delay)
 			}
 		},
 	}
@@ -64,6 +70,7 @@ func init() {
 	ClientRoot.PersistentFlags().StringVarP(&address, "address", "a", "", "Server Address")
 	ClientRoot.PersistentFlags().BoolVarP(&secure, "secure", "s", false, "With TLS")
 	ClientRoot.PersistentFlags().IntVarP(&timeout, "timeout", "", 1800, "Timeout")
+	ClientRoot.PersistentFlags().IntVarP(&fileChunk, "chunksize", "c", 1048576, "File chunksize [byte]")
 
 	transferCmd.Flags().StringVarP(&sourceTag, "tag", "t", "", "Source tag")
 	transferCmd.Flags().StringVarP(&sourceFile, "file", "f", "", "Source file")
