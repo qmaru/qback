@@ -1,4 +1,4 @@
-package client
+package cmd
 
 import (
 	"log"
@@ -12,8 +12,6 @@ import (
 var (
 	sourceTag  string
 	sourceFile string
-	address    string
-	secure     bool
 	timeout    int
 	fileChunk  int
 	ClientRoot = &cobra.Command{
@@ -28,12 +26,9 @@ var (
 		Short: "Transfer file",
 		Run: func(cmd *cobra.Command, args []string) {
 			c := new(client.ClientBasic)
-			if address == "" {
-				address = "127.0.0.1:20000"
-			}
-			c.ServerAddress = address
+			c.ServerAddress = ServiceAddress
 			c.Timeout = 1800
-			c.Secure = secure
+			c.Secure = ServiceWithSecure
 			c.Chunksize = fileChunk
 			result, err := c.FileStream(sourceTag, sourceFile)
 			if err != nil {
@@ -47,12 +42,9 @@ var (
 		Short: "Ping Server",
 		Run: func(cmd *cobra.Command, args []string) {
 			c := new(client.ClientBasic)
-			if address == "" {
-				address = "127.0.0.1:20000"
-			}
-			c.ServerAddress = address
+			c.ServerAddress = ServiceAddress
 			c.Timeout = timeout
-			c.Secure = secure
+			c.Secure = ServiceWithSecure
 			startTime := time.Now().UnixMilli()
 			err := c.ServerCheck()
 			if err != nil {
@@ -67,8 +59,6 @@ var (
 )
 
 func init() {
-	ClientRoot.PersistentFlags().StringVarP(&address, "address", "a", "", "Server Address")
-	ClientRoot.PersistentFlags().BoolVarP(&secure, "secure", "s", false, "With TLS")
 	ClientRoot.PersistentFlags().IntVarP(&timeout, "timeout", "", 1800, "Timeout")
 	ClientRoot.PersistentFlags().IntVarP(&fileChunk, "chunksize", "c", 1048576, "File chunksize [byte]")
 
