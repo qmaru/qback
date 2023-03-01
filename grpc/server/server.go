@@ -81,6 +81,8 @@ func (s *ServerBasic) Run() error {
 
 	opts := []grpc.ServerOption{
 		grpc.UnaryInterceptor(logInterceptor),
+		grpc.MaxRecvMsgSize(common.MaxMsgSize),
+		grpc.MaxSendMsgSize(common.MaxMsgSize),
 	}
 
 	if s.Secure {

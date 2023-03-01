@@ -62,8 +62,19 @@ func (c *ClientBasic) connect() (pb.FileTransferServiceClient, error) {
 		cred = insecure.NewCredentials()
 	}
 
+	callOpt := grpc.WithDefaultCallOptions(
+		grpc.MaxCallRecvMsgSize(common.MaxMsgSize),
+		grpc.MaxCallSendMsgSize(common.MaxMsgSize),
+	)
+
+	opts := []grpc.DialOption{
+		grpc.WithTransportCredentials(cred),
+		grpc.WithBlock(),
+		callOpt,
+	}
+
 	c.ctx, c.cancel = context.WithTimeout(context.Background(), time.Duration(c.Timeout)*time.Second)
-	conn, err := grpc.DialContext(c.ctx, c.ServerAddress, grpc.WithTransportCredentials(cred), grpc.WithBlock())
+	conn, err := grpc.DialContext(c.ctx, c.ServerAddress, opts...)
 	if err != nil {
 		return nil, err
 	}
