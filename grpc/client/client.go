@@ -67,10 +67,13 @@ func (c *ClientBasic) connect() (pb.FileTransferServiceClient, error) {
 		grpc.MaxCallSendMsgSize(common.MaxMsgSize),
 	)
 
+	serverOpt := grpc.WithDefaultServiceConfig(common.RetryPolicy)
+
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(cred),
 		grpc.WithBlock(),
 		callOpt,
+		serverOpt,
 	}
 
 	c.ctx, c.cancel = context.WithTimeout(context.Background(), time.Duration(c.Timeout)*time.Second)
@@ -121,8 +124,8 @@ func (c *ClientBasic) FileStream(fileTag, filePath string) (string, error) {
 		return "", err
 	}
 	// 发送 meta 数据
-	log.Println("Sending metadata")
-	log.Printf("  -- Name: %s", fileName)
+	log.Println("File Metadata")
+	log.Printf("  -- File: %s", fileName)
 	log.Printf("  -- Size: %d Byte", fileSize)
 	log.Printf("  -- Chunk: %d Byte ", c.Chunksize)
 	log.Printf("  -- Count: %d", fileChunks)
@@ -133,58 +136,58 @@ func (c *ClientBasic) FileStream(fileTag, filePath string) (string, error) {
 		Hash:   fileHash,
 		Tag:    fileTag,
 	})
-	if res.GetStatus() {
-		message := res.GetMessage()
-		if res.GetStatus() {
-			log.Println(message)
-			// 初始化客户端
-			stream, err := client.SendFile(context.Background())
-			if err != nil {
-				return "", err
-			}
-			// 获取文件内容
-			fileBody, err := os.Open(filePath)
-			if err != nil {
-				return "", err
-			}
-			defer fileBody.Close()
-			// 发送文件
-			buffer := make([]byte, c.Chunksize)
-			for chunk := int64(1); chunk <= fileChunks; chunk++ {
-				// 计算分片大小
-				fileChunksize := (chunk - 1) * int64(c.Chunksize)
-				// 设置偏移量
-				fileBody.Seek(fileChunksize, 0)
-				// 设置最后的分片的偏移量
-				if len(buffer) > int((fileSize - fileChunksize)) {
-					buffer = make([]byte, fileSize-fileChunksize)
-				}
-				// 读取内容
-				offset, err := fileBody.Read(buffer)
-				if err != nil {
-					return "", err
-				}
 
-				err = stream.Send(&pb.FileRequest{
-					Chunk: chunk,
-					Data:  buffer[:offset],
-				})
-				common.ShowProgress(chunk, fileChunks)
-				if err != nil {
-					return "", err
-				}
-			}
-			res, err := stream.CloseAndRecv()
-			if err != nil {
-				return "", err
-			}
-			message := res.GetMessage()
-			if err != nil {
-				return "", err
-			}
-			return message, nil
+	metaStatus := res.GetStatus()
+	metaMessage := res.GetMessage()
+
+	if metaStatus {
+		log.Println(metaMessage)
+		// 初始化客户端
+		stream, err := client.SendFile(context.Background())
+		if err != nil {
+			return "", err
 		}
-		return message, nil
+		// 获取文件内容
+		fileBody, err := os.Open(filePath)
+		if err != nil {
+			return "", err
+		}
+		defer fileBody.Close()
+		// 发送文件
+		buffer := make([]byte, c.Chunksize)
+		for chunk := int64(1); chunk <= fileChunks; chunk++ {
+			// 计算分片大小
+			fileChunksize := (chunk - 1) * int64(c.Chunksize)
+			// 设置偏移量
+			fileBody.Seek(fileChunksize, 0)
+			// 设置最后的分片的偏移量
+			if len(buffer) > int((fileSize - fileChunksize)) {
+				buffer = make([]byte, fileSize-fileChunksize)
+			}
+			// 读取内容
+			offset, err := fileBody.Read(buffer)
+			if err != nil {
+				return "", err
+			}
+
+			err = stream.Send(&pb.FileRequest{
+				Chunk: chunk,
+				Data:  buffer[:offset],
+			})
+			common.ShowProgress(chunk, fileChunks)
+			if err != nil {
+				return "", err
+			}
+		}
+		res, err := stream.CloseAndRecv()
+		if err != nil {
+			return "", err
+		}
+		streamMessage := res.GetMessage()
+		if err != nil {
+			return "", err
+		}
+		return streamMessage, nil
 	}
-	return res.GetMessage(), nil
+	return metaMessage, nil
 }
