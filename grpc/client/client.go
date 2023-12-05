@@ -119,7 +119,7 @@ func (c *ClientBasic) FileStream(fileTag, filePath string) (string, error) {
 	fileName := fileInfo.Name()
 	fileSize := fileInfo.Size()
 	fileChunks := int64(math.Ceil(float64(fileSize) / float64(c.Chunksize)))
-	fileHash, err := common.CalcMD5(filePath)
+	fileHash, err := common.CalcBlake3(filePath)
 	if err != nil {
 		return "", err
 	}

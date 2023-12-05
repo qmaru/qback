@@ -31,7 +31,7 @@ func FileIsExist(savePath, fileTag, fileName, fileHash string) (bool, error) {
 		return false, err
 	}
 	// 检查哈希值
-	currentHash, err := common.CalcMD5(dstFile)
+	currentHash, err := common.CalcBlake3(dstFile)
 	if err != nil {
 		return false, err
 	}

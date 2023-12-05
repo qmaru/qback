@@ -3,7 +3,7 @@ package common
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
+	"os"
 
 	"qBack/configs"
 )
@@ -29,7 +29,7 @@ func GenTLSInfo(certType string) (*tls.Config, *x509.CertPool, error) {
 	}
 	// 设置 CA 信息
 	certPool := x509.NewCertPool()
-	ca, err := ioutil.ReadFile(caCert)
+	ca, err := os.ReadFile(caCert)
 	if err != nil {
 		return nil, nil, err
 	}

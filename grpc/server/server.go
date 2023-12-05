@@ -154,7 +154,7 @@ func (s *FileService) SendFile(stream pb.FileTransferService_SendFileServer) err
 			if err != nil {
 				stream.SendAndClose(&pb.FileResponse{Status: false, Message: "Set dst folder failed: " + err.Error()})
 			}
-			recMd5, err := common.CalcMD5(dstFile)
+			recMd5, err := common.CalcBlake3(dstFile)
 			if err != nil {
 				return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "File hash error: " + err.Error()})
 			}
