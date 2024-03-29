@@ -36,6 +36,7 @@ type ClientBasic struct {
 	Chunksize     int
 	ServerAddress string
 	Secure        bool
+	Debug         bool
 }
 
 func (c *ClientBasic) defaultTimeout() {
@@ -51,7 +52,7 @@ func (c *ClientBasic) connect() (pb.FileTransferServiceClient, error) {
 	var cred credentials.TransportCredentials
 	if c.Secure {
 		log.Println("TLS ON")
-		tlsConfig, certPool, err := common.GenTLSInfo("client")
+		tlsConfig, certPool, err := common.GenTLSInfo(c.Debug, "client")
 		if err != nil {
 			return nil, err
 		}
@@ -136,6 +137,9 @@ func (c *ClientBasic) FileStream(fileTag, filePath string) (string, error) {
 		Hash:   fileHash,
 		Tag:    fileTag,
 	})
+	if err != nil {
+		return "", err
+	}
 
 	metaStatus := res.GetStatus()
 	metaMessage := res.GetMessage()
@@ -184,9 +188,6 @@ func (c *ClientBasic) FileStream(fileTag, filePath string) (string, error) {
 			return "", err
 		}
 		streamMessage := res.GetMessage()
-		if err != nil {
-			return "", err
-		}
 		return streamMessage, nil
 	}
 	return metaMessage, nil

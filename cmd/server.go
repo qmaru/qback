@@ -18,6 +18,7 @@ var (
 			s.ListenAddress = ServiceAddress
 			s.Secure = ServiceWithSecure
 			s.SavePath = savePath
+			s.Debug = Debug
 			err := s.Run()
 			if err != nil {
 				log.Fatal(err)

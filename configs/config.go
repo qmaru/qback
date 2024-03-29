@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 )
 
-func LocalPath() (path string, err error) {
-	if Debug {
+func LocalPath(debug bool) (path string, err error) {
+	if debug {
 		path, err = os.Getwd()
 		if err != nil {
 			return "", err
@@ -22,8 +22,8 @@ func LocalPath() (path string, err error) {
 }
 
 // 读取证书信息
-func ReadCertsCfg(certType string) (string, string, error) {
-	root, err := LocalPath()
+func ReadCertsCfg(debug bool, certType string) (string, string, error) {
+	root, err := LocalPath(debug)
 	if err != nil {
 		return "", "", err
 	}

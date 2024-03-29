@@ -30,6 +30,7 @@ var (
 			c.Timeout = 1800
 			c.Secure = ServiceWithSecure
 			c.Chunksize = fileChunk
+			c.Debug = Debug
 			result, err := c.FileStream(sourceTag, sourceFile)
 			if err != nil {
 				log.Fatal(err)
@@ -45,6 +46,7 @@ var (
 			c.ServerAddress = ServiceAddress
 			c.Timeout = timeout
 			c.Secure = ServiceWithSecure
+			c.Debug = Debug
 			startTime := time.Now().UnixMilli()
 			err := c.ServerCheck()
 			if err != nil {

@@ -8,14 +8,14 @@ import (
 	"qBack/configs"
 )
 
-func GenTLSInfo(certType string) (*tls.Config, *x509.CertPool, error) {
+func GenTLSInfo(debug bool, certType string) (*tls.Config, *x509.CertPool, error) {
 	// 读取指定证书
-	cert, key, err := configs.ReadCertsCfg(certType)
+	cert, key, err := configs.ReadCertsCfg(debug, certType)
 	if err != nil {
 		return nil, nil, err
 	}
 	// 读取 CA 证书
-	caCert, _, err := configs.ReadCertsCfg("ca")
+	caCert, _, err := configs.ReadCertsCfg(debug, "ca")
 	if err != nil {
 		return nil, nil, err
 	}

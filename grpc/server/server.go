@@ -35,6 +35,7 @@ type ServerBasic struct {
 	ListenAddress string
 	SavePath      string
 	Secure        bool
+	Debug         bool
 }
 
 type FileService struct {
@@ -87,7 +88,7 @@ func (s *ServerBasic) Run() error {
 
 	if s.Secure {
 		log.Println("TLS ON")
-		tlsConfig, certPool, err := common.GenTLSInfo("server")
+		tlsConfig, certPool, err := common.GenTLSInfo(s.Debug, "server")
 		if err != nil {
 			return err
 		}
