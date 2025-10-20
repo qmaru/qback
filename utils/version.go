@@ -10,4 +10,11 @@ const (
 	GoVer     string = "COMMIT_GOVER"
 )
 
-var VERSION string = fmt.Sprintf("%s (git-%s) (%s)", DateVer, CommitVer, GoVer)
+var VERSION string = getVersion()
+
+func getVersion() string {
+	if CommitVer == "COMMIT_VERSION" {
+		return fmt.Sprintf("%s (%s)", DateVer, GoVer)
+	}
+	return fmt.Sprintf("%s (git-%s) (%s)", DateVer, CommitVer, GoVer)
+}
