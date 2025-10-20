@@ -1,7 +1,7 @@
 package common
 
 const (
-	MaxMsgSize  = 10 * 1024 * 1024
+	MaxMsgSize  = 50 * 1024 * 1024
 	RetryPolicy = `{
 		"methodConfig": [
 		  {
@@ -12,12 +12,13 @@ const (
 			],
 			"retryPolicy": {
 			  "MaxAttempts": 4,
-			  "InitialBackoff": "3s",
+			  "InitialBackoff": "1s",
 			  "MaxBackoff": "30s",
-			  "BackoffMultiplier": 1.0,
+			  "BackoffMultiplier": 2.0,
 			  "RetryableStatusCodes": [
 				"UNAVAILABLE",
-				"UNKNOWN"
+				"UNKNOWN",
+				"DEADLINE_EXCEEDED"
 			  ]
 			}
 		  }

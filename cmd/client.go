@@ -10,11 +10,12 @@ import (
 )
 
 var (
-	sourceTag  string
-	sourceFile string
-	timeout    int
-	fileChunk  int
-	ClientRoot = &cobra.Command{
+	sourceTag      string
+	sourceFile     string
+	metatimeout    int
+	connecttimeout int
+	fileChunk      int
+	ClientRoot     = &cobra.Command{
 		Use:   "client",
 		Short: "Run Client",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -26,11 +27,11 @@ var (
 		Short: "Transfer file",
 		Run: func(cmd *cobra.Command, args []string) {
 			qClient := client.ClientBasic{
-				ServerAddress: ServiceAddress,
-				Timeout:       1800,
-				Secure:        ServiceWithSecure,
-				Chunksize:     fileChunk,
-				Debug:         Debug,
+				ServerAddress:  ServiceAddress,
+				ConnectTimeout: connecttimeout,
+				MetaTimeout:    metatimeout,
+				Secure:         ServiceWithSecure,
+				Chunksize:      fileChunk,
 			}
 
 			result, err := qClient.FileStream(sourceTag, sourceFile)
@@ -47,10 +48,10 @@ var (
 			startTime := time.Now().UnixMilli()
 
 			qClient := client.ClientBasic{
-				ServerAddress: ServiceAddress,
-				Timeout:       timeout,
-				Secure:        ServiceWithSecure,
-				Debug:         Debug,
+				ServerAddress:  ServiceAddress,
+				ConnectTimeout: connecttimeout,
+				MetaTimeout:    metatimeout,
+				Secure:         ServiceWithSecure,
 			}
 
 			err := qClient.ServerCheck()
@@ -66,7 +67,8 @@ var (
 )
 
 func init() {
-	ClientRoot.PersistentFlags().IntVarP(&timeout, "timeout", "", 1800, "Timeout")
+	ClientRoot.PersistentFlags().IntVarP(&connecttimeout, "ct", "", 10, "Connect Timeout")
+	ClientRoot.PersistentFlags().IntVarP(&metatimeout, "mt", "", 30, "Metadata Timeout")
 	ClientRoot.PersistentFlags().IntVarP(&fileChunk, "chunksize", "c", 1048576, "File chunksize [byte]")
 
 	transferCmd.Flags().StringVarP(&sourceTag, "tag", "t", "", "Source tag")

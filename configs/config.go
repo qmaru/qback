@@ -31,7 +31,7 @@ func GetCertPath() (string, error) {
 }
 
 // 读取证书信息
-func ReadCertsCfg(debug bool, certType string) (string, string, error) {
+func ReadCertsCfg(certType string) (string, string, error) {
 	root := MustGetCertPath()
 
 	switch certType {

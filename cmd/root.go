@@ -10,7 +10,6 @@ import (
 )
 
 var (
-	Debug             bool
 	ServiceAddress    string
 	ServiceWithSecure bool
 	rootCmd           = &cobra.Command{
@@ -36,7 +35,6 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().BoolVarP(&Debug, "debug", "", false, "Debug mode")
 	rootCmd.PersistentFlags().StringVarP(&ServiceAddress, "address", "a", "127.0.0.1:20000", "Server Address")
 	rootCmd.PersistentFlags().BoolVarP(&ServiceWithSecure, "secure", "s", false, "With TLS")
 }

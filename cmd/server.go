@@ -18,7 +18,6 @@ var (
 				ListenAddress: ServiceAddress,
 				Secure:        ServiceWithSecure,
 				SavePath:      savePath,
-				Debug:         Debug,
 			}
 			err := qServer.Run()
 			if err != nil {

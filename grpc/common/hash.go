@@ -14,6 +14,8 @@ func CalcBlake3(filepath string) (string, error) {
 	}
 	defer f.Close()
 
+	utils.Blake3Suite.Reset()
+
 	_, err = utils.Blake3Suite.WriteFrom(f)
 	if err != nil {
 		return "", err

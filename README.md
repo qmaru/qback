@@ -18,7 +18,6 @@ Available Commands:
 
 Flags:
   -a, --address string   Server Address (default "127.0.0.1:20000")
-      --debug            Debug mode
   -h, --help             help for qback
   -s, --secure           With TLS
   -v, --version          version for qback
