@@ -2,48 +2,49 @@ package configs
 
 import (
 	"errors"
-	"os"
+	"log"
 	"path/filepath"
+	"sync"
+
+	"qBack/utils"
 )
 
-func LocalPath(debug bool) (path string, err error) {
-	if debug {
-		path, err = os.Getwd()
-		if err != nil {
-			return "", err
-		}
-	} else {
-		path, err = filepath.Abs(filepath.Dir(os.Args[0]))
-		if err != nil {
-			return "", err
-		}
+var MustGetCertPath = sync.OnceValue(func() string {
+	p, err := GetCertPath()
+	if err != nil {
+		log.Fatal(err)
 	}
-	return path, nil
+	return p
+})
+
+func GetCertPath() (string, error) {
+	root, err := utils.FileSuite.RootPath("certs")
+	if err != nil {
+		return "", err
+	}
+
+	if !utils.FileSuite.Exists(root) {
+		return "", errors.New("cert path not found")
+	}
+
+	return root, nil
 }
 
 // 读取证书信息
 func ReadCertsCfg(debug bool, certType string) (string, string, error) {
-	root, err := LocalPath(debug)
-	if err != nil {
-		return "", "", err
-	}
-	certRoot := filepath.Join(root, "certs")
-	_, err = os.Stat(certRoot)
-	if err != nil {
-		return "", "", err
-	}
+	root := MustGetCertPath()
 
 	switch certType {
 	case "server":
-		certFile := filepath.Join(certRoot, "server.pem")
-		keyFile := filepath.Join(certRoot, "server.key")
+		certFile := filepath.Join(root, "server.pem")
+		keyFile := filepath.Join(root, "server.key")
 		return certFile, keyFile, nil
 	case "client":
-		certFile := filepath.Join(certRoot, "client.pem")
-		keyFile := filepath.Join(certRoot, "client.key")
+		certFile := filepath.Join(root, "client.pem")
+		keyFile := filepath.Join(root, "client.key")
 		return certFile, keyFile, nil
 	case "ca":
-		certFile := filepath.Join(certRoot, "ca.pem")
+		certFile := filepath.Join(root, "ca.pem")
 		keyFile := ""
 		return certFile, keyFile, nil
 	}

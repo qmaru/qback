@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"qBack/utils"
+
 	"github.com/spf13/cobra"
 )
 
@@ -14,7 +16,7 @@ var (
 	rootCmd           = &cobra.Command{
 		Use:     "qBack",
 		Short:   "qBack is a File Transfer Service",
-		Version: VERSION,
+		Version: utils.VERSION,
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
 		},

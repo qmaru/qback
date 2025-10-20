@@ -1,11 +1,9 @@
 package common
 
 import (
-	"encoding/hex"
-	"io"
 	"os"
 
-	"lukechampine.com/blake3"
+	"qBack/utils"
 )
 
 // CalcBlake3 计算文件 blake3-256
@@ -16,10 +14,11 @@ func CalcBlake3(filepath string) (string, error) {
 	}
 	defer f.Close()
 
-	hasher := blake3.New(32, nil)
-	if _, err := io.Copy(hasher, f); err != nil {
+	_, err = utils.Blake3Suite.WriteFrom(f)
+	if err != nil {
 		return "", err
 	}
-	hashString := hex.EncodeToString(hasher.Sum(nil))
-	return hashString, nil
+
+	bhash := utils.Blake3Suite.SumStream()
+	return bhash.ToHex(), nil
 }

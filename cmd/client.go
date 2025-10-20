@@ -25,13 +25,15 @@ var (
 		Use:   "transfer",
 		Short: "Transfer file",
 		Run: func(cmd *cobra.Command, args []string) {
-			c := new(client.ClientBasic)
-			c.ServerAddress = ServiceAddress
-			c.Timeout = 1800
-			c.Secure = ServiceWithSecure
-			c.Chunksize = fileChunk
-			c.Debug = Debug
-			result, err := c.FileStream(sourceTag, sourceFile)
+			qClient := client.ClientBasic{
+				ServerAddress: ServiceAddress,
+				Timeout:       1800,
+				Secure:        ServiceWithSecure,
+				Chunksize:     fileChunk,
+				Debug:         Debug,
+			}
+
+			result, err := qClient.FileStream(sourceTag, sourceFile)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -42,13 +44,16 @@ var (
 		Use:   "ping",
 		Short: "Ping Server",
 		Run: func(cmd *cobra.Command, args []string) {
-			c := new(client.ClientBasic)
-			c.ServerAddress = ServiceAddress
-			c.Timeout = timeout
-			c.Secure = ServiceWithSecure
-			c.Debug = Debug
 			startTime := time.Now().UnixMilli()
-			err := c.ServerCheck()
+
+			qClient := client.ClientBasic{
+				ServerAddress: ServiceAddress,
+				Timeout:       timeout,
+				Secure:        ServiceWithSecure,
+				Debug:         Debug,
+			}
+
+			err := qClient.ServerCheck()
 			if err != nil {
 				log.Printf("Server is down: %s\n", err.Error())
 			} else {

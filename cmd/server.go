@@ -14,12 +14,13 @@ var (
 		Use:   "server",
 		Short: "Run Server",
 		Run: func(cmd *cobra.Command, args []string) {
-			s := new(server.ServerBasic)
-			s.ListenAddress = ServiceAddress
-			s.Secure = ServiceWithSecure
-			s.SavePath = savePath
-			s.Debug = Debug
-			err := s.Run()
+			qServer := server.ServerBasic{
+				ListenAddress: ServiceAddress,
+				Secure:        ServiceWithSecure,
+				SavePath:      savePath,
+				Debug:         Debug,
+			}
+			err := qServer.Run()
 			if err != nil {
 				log.Fatal(err)
 			}
