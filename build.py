@@ -24,7 +24,7 @@ def update_version(recovery=False):
 def build_linux():
     print("Build Linux")
     linuxenv = "CGO_ENABLED=0 GOOS=linux GOARCH=amd64"
-    last_build_path = os.path.join(root, "qBack")
+    last_build_path = os.path.join(root, "qback")
     build_cmd = f'{linuxenv} go build -ldflags="-s -w" -o {last_build_path}'
     upx_cmd = f"upx --best --lzma {last_build_path}"
     os.system(build_cmd)
@@ -37,7 +37,7 @@ def build_win():
     winenv["CGO_ENABLED"] = "0"
     winenv["GOOS"] = "windows"
     winenv["GOARCH"] = "amd64"
-    last_build_path = os.path.join(root, "qBack.exe")
+    last_build_path = os.path.join(root, "qback.exe")
     build_cmd = f'go build -ldflags="-s -w" -o {last_build_path}'
     upx_cmd = f"upx --best --lzma {last_build_path}"
     os.system(build_cmd)

@@ -3,7 +3,7 @@ package common
 import (
 	"os"
 
-	"qBack/utils"
+	"qback/utils"
 )
 
 // CalcBlake3 计算文件 blake3-256

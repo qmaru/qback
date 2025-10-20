@@ -5,7 +5,7 @@ import (
 	"crypto/x509"
 	"os"
 
-	"qBack/configs"
+	"qback/configs"
 )
 
 func GenTLSInfo(debug bool, certType string) (*tls.Config, *x509.CertPool, error) {

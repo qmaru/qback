@@ -16,6 +16,6 @@ FROM scratch AS prod
 
 COPY --from=builder /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=builder /usr/src/app /qBack
+COPY --from=builder /usr/src/app /qback
 
-ENTRYPOINT ["/qBack"]
+ENTRYPOINT ["/qback"]

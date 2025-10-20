@@ -20,8 +20,8 @@ import (
 	"os"
 	"time"
 
-	"qBack/grpc/common"
-	pb "qBack/grpc/libs"
+	"qback/grpc/common"
+	pb "qback/grpc/libs"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"

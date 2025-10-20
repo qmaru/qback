@@ -4,7 +4,7 @@ import (
 	"log"
 	"time"
 
-	"qBack/grpc/client"
+	"qback/grpc/client"
 
 	"github.com/spf13/cobra"
 )

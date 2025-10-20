@@ -1,7 +1,7 @@
 package main
 
 import (
-	"qBack/cmd"
+	"qback/cmd"
 )
 
 func main() {

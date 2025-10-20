@@ -3,7 +3,7 @@ package cmd
 import (
 	"log"
 
-	"qBack/grpc/server"
+	"qback/grpc/server"
 
 	"github.com/spf13/cobra"
 )

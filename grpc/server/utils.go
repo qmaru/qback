@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"qBack/grpc/common"
+	"qback/grpc/common"
 )
 
 // SetDstPath 设置文件路径

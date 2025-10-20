@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"qBack/utils"
+	"qback/utils"
 
 	"github.com/spf13/cobra"
 )
@@ -14,8 +14,8 @@ var (
 	ServiceAddress    string
 	ServiceWithSecure bool
 	rootCmd           = &cobra.Command{
-		Use:     "qBack",
-		Short:   "qBack is a File Transfer Service",
+		Use:     "qback",
+		Short:   "qback is a File Transfer Service",
 		Version: utils.VERSION,
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()

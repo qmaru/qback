@@ -1,4 +1,4 @@
-module qBack
+module qback
 
 go 1.25
 
