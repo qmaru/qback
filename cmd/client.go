@@ -12,12 +12,13 @@ import (
 )
 
 var (
-	sourceTag      string
-	sourceFile     string
-	metatimeout    int
-	connecttimeout int
-	fileChunk      int
-	ClientRoot     = &cobra.Command{
+	reverse      bool
+	remoteTag    string
+	localFile    string
+	localDir     string
+	chunkTimeout int
+	fileChunk    int
+	ClientRoot   = &cobra.Command{
 		Use:   "client",
 		Short: "Run Client",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -28,15 +29,30 @@ var (
 		Use:   "transfer",
 		Short: "Transfer file",
 		Run: func(cmd *cobra.Command, args []string) {
-			qClient := client.ClientBasic{
-				ServerAddress:  ServiceAddress,
-				ConnectTimeout: connecttimeout,
-				MetaTimeout:    metatimeout,
-				Secure:         ServiceWithSecure,
-				Chunksize:      fileChunk,
+			if reverse {
+				if localDir == "" {
+					log.Fatal("Error: --dir flag is required when using --reverse")
+				}
+			} else {
+				if localFile == "" {
+					log.Fatal("Error: --file flag is required for normal transfer")
+				}
 			}
 
-			result, err := qClient.UploadFile(sourceTag, sourceFile)
+			qClient := client.ClientBasic{
+				ServerAddress: ServiceAddress,
+				ChunkTimeout:  chunkTimeout,
+				Secure:        ServiceWithSecure,
+				Chunksize:     fileChunk,
+			}
+
+			if reverse {
+				log.Printf("Starting reverse transfer: server to client\n")
+				return
+			}
+
+			log.Printf("Starting transfer: client to server\n")
+			result, err := qClient.UploadFile(remoteTag, localFile)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -50,10 +66,9 @@ var (
 			startTime := time.Now().UnixMilli()
 
 			qClient := client.ClientBasic{
-				ServerAddress:  ServiceAddress,
-				ConnectTimeout: connecttimeout,
-				MetaTimeout:    metatimeout,
-				Secure:         ServiceWithSecure,
+				ServerAddress: ServiceAddress,
+				ChunkTimeout:  chunkTimeout,
+				Secure:        ServiceWithSecure,
 			}
 
 			err := qClient.ServerCheck()
@@ -66,24 +81,21 @@ var (
 			}
 		},
 	}
-
 	listCmd = &cobra.Command{
 		Use:   "list",
 		Short: "List server files",
 		Run: func(cmd *cobra.Command, args []string) {
 			qClient := client.ClientBasic{
-				ServerAddress:  ServiceAddress,
-				ConnectTimeout: connecttimeout,
-				MetaTimeout:    metatimeout,
-				Secure:         ServiceWithSecure,
+				ServerAddress: ServiceAddress,
+				Secure:        ServiceWithSecure,
 			}
 
-			files, err := qClient.ListFiles(sourceTag)
+			files, err := qClient.ListFiles(remoteTag)
 			if err != nil {
 				log.Fatal(err)
 			}
 
-			log.Printf("Server list under %s tag\n", sourceTag)
+			log.Printf("Server list under %s tag\n", remoteTag)
 			if len(files) == 0 {
 				log.Println("No files found")
 				return
@@ -99,16 +111,16 @@ var (
 )
 
 func init() {
-	ClientRoot.PersistentFlags().IntVarP(&connecttimeout, "ct", "", 10, "Connect Timeout")
-	ClientRoot.PersistentFlags().IntVarP(&metatimeout, "mt", "", 30, "Metadata Timeout")
+	ClientRoot.PersistentFlags().IntVarP(&chunkTimeout, "ct", "", 10, "Connect Timeout")
 	ClientRoot.PersistentFlags().IntVarP(&fileChunk, "chunksize", "c", 1048576, "File chunksize [byte]")
 
-	transferCmd.Flags().StringVarP(&sourceTag, "tag", "t", "", "Source tag")
-	transferCmd.Flags().StringVarP(&sourceFile, "file", "f", "", "Source file")
+	transferCmd.Flags().StringVarP(&remoteTag, "tag", "t", "", "Remote tag")
+	transferCmd.Flags().StringVarP(&localFile, "file", "f", "", "Local file")
+	transferCmd.Flags().StringVarP(&localDir, "dir", "d", "", "Local directory")
+	transferCmd.Flags().BoolVarP(&reverse, "reverse", "r", false, "Reverse transfer (server to client)")
 	transferCmd.MarkFlagRequired("tag")
-	transferCmd.MarkFlagRequired("file")
 
-	listCmd.Flags().StringVarP(&sourceTag, "tag", "t", "", "Source tag")
+	listCmd.Flags().StringVarP(&remoteTag, "tag", "t", "", "Source tag")
 	listCmd.MarkFlagRequired("tag")
 
 	ClientRoot.AddCommand(transferCmd)

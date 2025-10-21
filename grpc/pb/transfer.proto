@@ -7,27 +7,22 @@ option go_package = "grpc/libs/;libs";
 
 service FileTransferService {
   rpc ServerCheck(Ping) returns (Pong) {};
-  rpc SendMeta(MetaRequest) returns (MetaResponse) {};
   rpc ListFiles(ListFilesRequest) returns (ListFilesResponse) {};
-  rpc UploadFile(stream ChunkData) returns (TransferResponse) {};
-  rpc DownloadFile(TransferRequest) returns (stream ChunkData) {};
+  rpc UploadFile(stream UploadRequest) returns (stream UploadResponse) {};
+  rpc DownloadFile(DownloadRequest) returns (stream DownloadResponse) {};
 }
 
 message Ping { bool status = 1; }
 
 message Pong { bool status = 1; }
 
-message MetaRequest {
+message FileMetadata {
   string tag = 1;
   string name = 2;
   int64 size = 3;
   int64 chunks = 4;
-  string hash = 5;
-}
-
-message MetaResponse {
-  bool status = 1;
-  string message = 2;
+  int64 chunksize = 5;
+  string hash = 6;
 }
 
 message ChunkData {
@@ -35,21 +30,53 @@ message ChunkData {
   int64 chunk = 2;
 }
 
-message TransferRequest {
-  string tag = 1;
-  string name = 2;
+message UploadRequest {
+  oneof payload {
+    FileMetadata metadata = 1;
+    ChunkData chunk = 2;
+  }
 }
 
-message TransferResponse {
+message UploadResponse {
+  oneof payload {
+    MetaAck meta_ack = 1;
+    ChunkAck chunk_ack = 2;
+    TransferResult result = 3;
+  }
+}
+message MetaAck {
+  bool allow_upload = 1;
+  string message = 2;
+}
+
+message ChunkAck {
+  int64 chunk = 1;
+  bool received = 2;
+}
+
+message TransferResult {
   bool status = 1;
   string message = 2;
 }
 
-message FileItem {
+message DownloadRequest {
+  string tag = 1;
+  string name = 2;
+}
+
+message DownloadResponse {
+  oneof payload {
+    FileMetadata metadata = 1;
+    ChunkData chunk = 2;
+    TransferResult result = 3;
+  }
+}
+
+message ListFileItem {
   string name = 1;
   int64 size = 2;
   string hash = 3;
-  int64 chunks = 4;
+  int64 modified_time = 4;
 }
 
 message ListFilesRequest { string tag = 1; }
@@ -57,5 +84,5 @@ message ListFilesRequest { string tag = 1; }
 message ListFilesResponse {
   bool status = 1;
   string message = 2;
-  repeated FileItem files = 3;
+  repeated ListFileItem files = 3;
 }

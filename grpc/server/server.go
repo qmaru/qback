@@ -16,11 +16,11 @@ import (
 	"bufio"
 	"context"
 	"crypto/tls"
+	"fmt"
 	"io"
 	"log"
 	"net"
 	"os"
-	"strconv"
 	"time"
 
 	"qback/grpc/common"
@@ -29,7 +29,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 )
 
@@ -46,15 +45,16 @@ type FileService struct {
 	pb.UnimplementedFileTransferServiceServer
 }
 
-type fileTransferContext struct {
-	fileTag    string
-	fileName   string
-	fileSize   int64
-	fileChunks int64
-	fileHash   string
+type FileValidationInfo struct {
+	Data         []byte
+	FilePath     string
+	ExpectedSize int64
+	ExpectedHash string
+	IsMemory     bool
 }
 
-func loggerMid(ctx context.Context, info *grpc.UnaryServerInfo) error {
+// unaryLoggerMid
+func unaryLoggerMid(ctx context.Context, info *grpc.UnaryServerInfo) error {
 	var clientIP string
 	pr, ok := peer.FromContext(ctx)
 	if ok {
@@ -81,10 +81,10 @@ func streamLoggerMid(ctx context.Context, info *grpc.StreamServerInfo) error {
 	return nil
 }
 
-// logInterceptor 日志拦截器
-func logInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+// unaryLogInterceptor
+func unaryLogInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 	// 输出日志
-	err := loggerMid(ctx, info)
+	err := unaryLoggerMid(ctx, info)
 	if err != nil {
 		return nil, err
 	}
@@ -100,6 +100,40 @@ func streamLogInterceptor(srv any, ss grpc.ServerStream, info *grpc.StreamServer
 	return handler(srv, ss)
 }
 
+func validateFileIntegrity(info FileValidationInfo) error {
+	var recHash string
+	var actualSize int64
+	var err error
+
+	if info.IsMemory {
+		recHash, err = common.CalcBlake3FromBytes(info.Data)
+		actualSize = int64(len(info.Data))
+	} else {
+		recHash, err = common.CalcBlake3(info.FilePath)
+		if err == nil {
+			fileInfo, err := os.Stat(info.FilePath)
+			if err != nil {
+				return fmt.Errorf("stat file error: %v", err)
+			}
+			actualSize = fileInfo.Size()
+		}
+	}
+
+	if err != nil {
+		return fmt.Errorf("hash calculation error: %v", err)
+	}
+
+	if actualSize != info.ExpectedSize {
+		return fmt.Errorf("size mismatch: expected=%d got=%d", info.ExpectedSize, actualSize)
+	}
+
+	if recHash != info.ExpectedHash {
+		return fmt.Errorf("hash mismatch: expected=%s got=%s", info.ExpectedHash, recHash)
+	}
+
+	return nil
+}
+
 func (s *ServerBasic) Run() error {
 	log.Printf("Listen on %s\n", s.ListenAddress)
 
@@ -109,7 +143,7 @@ func (s *ServerBasic) Run() error {
 	}
 
 	opts := []grpc.ServerOption{
-		grpc.UnaryInterceptor(logInterceptor),
+		grpc.UnaryInterceptor(unaryLogInterceptor),
 		grpc.StreamInterceptor(streamLogInterceptor),
 		grpc.MaxRecvMsgSize(common.MaxMsgSize),
 		grpc.MaxSendMsgSize(common.MaxMsgSize),
@@ -152,206 +186,128 @@ func (s *ServerBasic) Run() error {
 	return nil
 }
 
+func (s *FileService) sendUploadError(stream pb.FileTransferService_UploadFileServer, message string) error {
+	return stream.Send(&pb.UploadResponse{
+		Payload: &pb.UploadResponse_Result{
+			Result: &pb.TransferResult{
+				Status:  false,
+				Message: message,
+			},
+		},
+	})
+}
+
+func (s *FileService) sendUploadSuccess(stream pb.FileTransferService_UploadFileServer, message string) error {
+	return stream.Send(&pb.UploadResponse{
+		Payload: &pb.UploadResponse_Result{
+			Result: &pb.TransferResult{
+				Status:  true,
+				Message: message,
+			},
+		},
+	})
+}
+
 func (s *FileService) ServerCheck(ctx context.Context, in *pb.Ping) (*pb.Pong, error) {
+	log.Printf("[Ping] Received")
 	if in.GetStatus() {
 		return &pb.Pong{Status: true}, nil
 	}
 	return &pb.Pong{Status: false}, nil
 }
 
-func (s *FileService) SendMeta(ctx context.Context, in *pb.MetaRequest) (*pb.MetaResponse, error) {
-	fileTag := in.GetTag()
-	fileName := in.GetName()
-	fileHash := in.GetHash()
+func (s *FileService) UploadFile(stream pb.FileTransferService_UploadFileServer) error {
+	req, err := stream.Recv()
+	if err != nil {
+		return err
+	}
 
-	log.Printf("[SendMeta] Received: tag=%s, name=%s, hash=%s\n", fileTag, fileName, fileHash)
+	metadata := req.GetMetadata()
+	if metadata == nil {
+		return s.sendUploadError(stream, "Missing metadata")
+	}
+
+	fileTag := metadata.GetTag()
+	fileName := metadata.GetName()
+	fileSize := metadata.GetSize()
+	fileChunks := metadata.GetChunks()
+	fileChunksize := metadata.GetChunksize()
+	fileHash := metadata.GetHash()
+
+	log.Printf("[Upload] Metadata: tag=%s, name=%s, size=%d, chunks=%d x %d Byte, hash=%s\n",
+		fileTag, fileName, fileSize, fileChunks, fileChunksize, fileHash)
 
 	if !s.memoryMode {
 		ok, err := FileIsExist(s.savePath, fileTag, fileName, fileHash)
 		if err != nil {
-			log.Printf("[SendMeta] Check file error: %v\n", err)
-			return &pb.MetaResponse{Status: false, Message: "Check file error: " + err.Error()}, nil
+			log.Printf("[Upload] File error: %s \n", err.Error())
+			return s.sendUploadError(stream, "File not found")
 		}
-
-		log.Printf("[SendMeta] FileIsExist returned: %v\n", ok)
-
 		if ok {
-			log.Printf("[SendMeta] File already exists, returning false status\n")
-			return &pb.MetaResponse{Status: false, Message: "File already exists"}, nil
+			return s.sendUploadError(stream, "File already exists")
 		}
-
-		log.Printf("[SendMeta] File does not exist, allowing upload\n")
 	}
 
-	fileSize := in.GetSize()
-	fileChunks := in.GetChunks()
-
-	header := metadata.Pairs(
-		"file-tag", fileTag,
-		"file-name", fileName,
-		"file-hash", fileHash,
-		"file-size", strconv.FormatInt(fileSize, 10),
-		"file-chunks", strconv.FormatInt(fileChunks, 10),
-	)
-	grpc.SendHeader(ctx, header)
-
-	log.Printf("Meta received: tag=%s, name=%s, size=%d, chunks=%d, hash=%s\n",
-		fileTag, fileName, fileSize, fileChunks, fileHash)
-
-	return &pb.MetaResponse{Status: true, Message: "The server allows receiving"}, nil
-}
-
-func (s *FileService) UploadFile(stream pb.FileTransferService_UploadFileServer) error {
-	md, ok := metadata.FromIncomingContext(stream.Context())
-	if !ok {
-		return stream.SendAndClose(&pb.TransferResponse{Status: false, Message: "Failed to get metadata"})
-	}
-
-	transferCtx := &fileTransferContext{}
-
-	if tags := md.Get("file-tag"); len(tags) > 0 {
-		transferCtx.fileTag = tags[0]
-	} else {
-		return stream.SendAndClose(&pb.TransferResponse{Status: false, Message: "Missing file-tag in metadata"})
-	}
-
-	if names := md.Get("file-name"); len(names) > 0 {
-		transferCtx.fileName = names[0]
-	} else {
-		return stream.SendAndClose(&pb.TransferResponse{Status: false, Message: "Missing file-name in metadata"})
-	}
-
-	if hashes := md.Get("file-hash"); len(hashes) > 0 {
-		transferCtx.fileHash = hashes[0]
-	} else {
-		return stream.SendAndClose(&pb.TransferResponse{Status: false, Message: "Missing file-hash in metadata"})
-	}
-
-	if sizes := md.Get("file-size"); len(sizes) > 0 {
-		size, err := strconv.ParseInt(sizes[0], 10, 64)
-		if err != nil {
-			return stream.SendAndClose(&pb.TransferResponse{Status: false, Message: "Invalid file-size in metadata"})
-		}
-		transferCtx.fileSize = size
-	} else {
-		return stream.SendAndClose(&pb.TransferResponse{Status: false, Message: "Missing file-size in metadata"})
-	}
-
-	if chunks := md.Get("file-chunks"); len(chunks) > 0 {
-		chunk, err := strconv.ParseInt(chunks[0], 10, 64)
-		if err != nil {
-			return stream.SendAndClose(&pb.TransferResponse{Status: false, Message: "Invalid file-chunks in metadata"})
-		}
-		transferCtx.fileChunks = chunk
-	} else {
-		return stream.SendAndClose(&pb.TransferResponse{Status: false, Message: "Missing file-chunks in metadata"})
+	if err := stream.Send(&pb.UploadResponse{
+		Payload: &pb.UploadResponse_MetaAck{
+			MetaAck: &pb.MetaAck{
+				AllowUpload: true,
+				Message:     "Ready to receive",
+			},
+		},
+	}); err != nil {
+		return err
 	}
 
 	var bufWriter *bufio.Writer
 	var recFile *os.File
-	var recFileName string
+	var recFilePath string
 	var memBuf []byte
 	startTime := time.Now()
 
 	if s.memoryMode {
-		memBuf = make([]byte, 0, transferCtx.fileSize)
+		memBuf = make([]byte, 0, fileSize)
 	} else {
-		var err error
-		dstFilePath, err := SetDstFilePath(s.savePath, transferCtx.fileTag, transferCtx.fileName)
+		dstFilePath, err := SetTargetFilePath(s.savePath, fileTag, fileName)
 		if err != nil {
-			log.Printf("Get save filepath error: %v\n", err)
-			return stream.SendAndClose(&pb.TransferResponse{Status: false, Message: "Server receive failed: " + err.Error()})
+			log.Printf("[Upload] Create file path error: %s \n", err.Error())
+			return s.sendUploadError(stream, "File upload path unavailable")
 		}
 
-		recFile, err = CreateSaveFile(dstFilePath)
+		recFile, err = OpenTargetFile(dstFilePath, FileWrite)
 		if err != nil {
-			log.Printf("Create save file error: %v\n", err)
-			return stream.SendAndClose(&pb.TransferResponse{Status: false, Message: "Server receive failed: " + err.Error()})
+			log.Printf("[Upload] Create file error: %s \n", err.Error())
+			return s.sendUploadError(stream, "Failed to access destination file")
 		}
-
-		recFileName = recFile.Name()
 		defer recFile.Close()
+
+		recFilePath = dstFilePath
 		bufWriter = bufio.NewWriterSize(recFile, 64*1024)
 	}
 
+	log.Println("[Upload] Start receiving data")
 	for {
-		in, err := stream.Recv()
+		req, err := stream.Recv()
 
 		if err == io.EOF {
-			elapsed := time.Since(startTime)
-			speed := float64(transferCtx.fileSize) / elapsed.Seconds()
-			speedStr := common.FormatSpeed(speed)
-
-			if s.memoryMode {
-				recHash, err := common.CalcBlake3FromBytes(memBuf)
-				if err != nil {
-					log.Printf("Calculate hash error: %v\n", err)
-					return stream.SendAndClose(&pb.TransferResponse{Status: false, Message: "File hash error: " + err.Error()})
-				}
-
-				if recHash != transferCtx.fileHash {
-					log.Printf("Hash mismatch: expected %s, got %s (size: %d)\n", transferCtx.fileHash, recHash, len(memBuf))
-					return stream.SendAndClose(&pb.TransferResponse{Status: false, Message: "File hash mismatch"})
-				}
-
-				if int64(len(memBuf)) != transferCtx.fileSize {
-					log.Printf("File size mismatch: expected %d, got %d\n", transferCtx.fileSize, len(memBuf))
-					return stream.SendAndClose(&pb.TransferResponse{Status: false, Message: "File size mismatch"})
-				}
-
-				log.Printf("Receive succeed (memory mode): size=%d, speed=%s\n", len(memBuf), speedStr)
-			} else {
-				if err := bufWriter.Flush(); err != nil {
-					log.Printf("Flush buffer error: %v\n", err)
-					os.Remove(recFileName)
-					return stream.SendAndClose(&pb.TransferResponse{Status: false, Message: "Flush failed: " + err.Error()})
-				}
-
-				if err := recFile.Sync(); err != nil {
-					log.Printf("Sync file error: %v\n", err)
-					os.Remove(recFileName)
-					return stream.SendAndClose(&pb.TransferResponse{Status: false, Message: "Sync failed: " + err.Error()})
-				}
-
-				fileInfo, err := os.Stat(recFileName)
-				if err != nil {
-					log.Printf("Stat file error: %v\n", err)
-					os.Remove(recFileName)
-					return stream.SendAndClose(&pb.TransferResponse{Status: false, Message: "File stat error: " + err.Error()})
-				}
-
-				if fileInfo.Size() != transferCtx.fileSize {
-					log.Printf("File size mismatch: expected %d, got %d\n", transferCtx.fileSize, fileInfo.Size())
-					os.Remove(recFileName)
-					return stream.SendAndClose(&pb.TransferResponse{Status: false, Message: "File size mismatch"})
-				}
-
-				recHash, err := common.CalcBlake3(recFileName)
-				if err != nil {
-					log.Printf("Calculate hash error: %v\n", err)
-					os.Remove(recFileName)
-					return stream.SendAndClose(&pb.TransferResponse{Status: false, Message: "File hash error: " + err.Error()})
-				}
-
-				if recHash != transferCtx.fileHash {
-					log.Printf("Hash mismatch: expected %s, got %s (file: %s, size: %d)\n", transferCtx.fileHash, recHash, recFileName, fileInfo.Size())
-					os.Remove(recFileName)
-					return stream.SendAndClose(&pb.TransferResponse{Status: false, Message: "File hash mismatch"})
-				}
-
-				log.Printf("Receive succeed: %s, speed=%s\n", recFileName, speedStr)
-			}
-
-			return stream.SendAndClose(&pb.TransferResponse{Status: true, Message: "Server Receive Succeed"})
+			log.Println("[Upload] Reached EOF, processing final validation")
+			break
 		}
 
 		if err != nil {
-			log.Printf("Receive error: %v\n", err)
-			return stream.SendAndClose(&pb.TransferResponse{Status: false, Message: "Server receive failed: " + err.Error()})
+			log.Printf("[Upload] Receive error: %v\n", err)
+			if !s.memoryMode {
+				os.Remove(recFilePath)
+			}
+			return s.sendUploadError(stream, "Receive error: file transfer incomplete")
 		}
 
-		// 保存文件
-		fileData := in.GetData()
+		chunk := req.GetChunk()
+		if chunk == nil {
+			continue
+		}
+
+		fileData := chunk.GetData()
 		if len(fileData) == 0 {
 			continue
 		}
@@ -359,23 +315,56 @@ func (s *FileService) UploadFile(stream pb.FileTransferService_UploadFileServer)
 		if s.memoryMode {
 			memBuf = append(memBuf, fileData...)
 		} else {
-			_, err = bufWriter.Write(fileData)
-			if err != nil {
-				log.Printf("Write file error: %v\n", err)
-				return stream.SendAndClose(&pb.TransferResponse{Status: false, Message: "Write file failed: " + err.Error()})
+			if _, err := bufWriter.Write(fileData); err != nil {
+				log.Printf("[Upload] Write error: %v\n", err)
+				os.Remove(recFilePath)
+				return s.sendUploadError(stream, "Receive error: write file error")
 			}
 		}
 
-		// 进度条
-		chunk := in.GetChunk()
-		if transferCtx.fileChunks > 0 {
-			common.ShowProgress(chunk, transferCtx.fileChunks)
+		if fileChunks > 0 {
+			common.ShowProgress(chunk.GetChunk(), fileChunks)
 		}
 	}
-}
 
-func (s *FileService) DownloadFile(in *pb.TransferRequest, stream pb.FileTransferService_DownloadFileServer) error {
-	return nil
+	if !s.memoryMode {
+		if err := bufWriter.Flush(); err != nil {
+			os.Remove(recFilePath)
+			log.Printf("[Upload] Flush error: %v\n", err)
+			return s.sendUploadError(stream, "Receive error: save file")
+		}
+		if err := recFile.Sync(); err != nil {
+			os.Remove(recFilePath)
+			log.Printf("[Upload] Sync error: %v\n", err)
+			return s.sendUploadError(stream, "Receive error: sync file")
+		}
+	}
+
+	if err := validateFileIntegrity(FileValidationInfo{
+		Data:         memBuf,
+		FilePath:     recFilePath,
+		ExpectedSize: fileSize,
+		ExpectedHash: fileHash,
+		IsMemory:     s.memoryMode,
+	}); err != nil {
+		if !s.memoryMode {
+			os.Remove(recFilePath)
+		}
+		log.Printf("[Upload] Validation error: %v\n", err)
+		return s.sendUploadError(stream, fmt.Sprintf("Receive error: %v", err))
+	}
+
+	elapsed := time.Since(startTime)
+	speed := float64(fileSize) / elapsed.Seconds()
+	speedStr := common.FormatSpeed(speed)
+
+	if s.memoryMode {
+		log.Printf("[Upload] Success (memory): size=%d, speed=%s\n", len(memBuf), speedStr)
+	} else {
+		log.Printf("[Upload] Success: %s, speed=%s\n", fileName, speedStr)
+	}
+
+	return s.sendUploadSuccess(stream, "Receive complete")
 }
 
 func (s *FileService) ListFiles(ctx context.Context, in *pb.ListFilesRequest) (*pb.ListFilesResponse, error) {

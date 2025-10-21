@@ -19,7 +19,6 @@ import (
 	"log"
 	"math"
 	"os"
-	"strconv"
 	"time"
 
 	"qback/grpc/common"
@@ -28,26 +27,21 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
 )
 
 type ClientBasic struct {
-	conn           *grpc.ClientConn
-	ctx            context.Context
-	cancel         context.CancelFunc
-	ConnectTimeout int
-	MetaTimeout    int
-	Chunksize      int
-	ServerAddress  string
-	Secure         bool
+	conn          *grpc.ClientConn
+	ctx           context.Context
+	cancel        context.CancelFunc
+	ChunkTimeout  int
+	Chunksize     int
+	ServerAddress string
+	Secure        bool
 }
 
 func (c *ClientBasic) defaultTimeout() {
-	if c.ConnectTimeout == 0 {
-		c.ConnectTimeout = 10
-	}
-	if c.MetaTimeout == 0 {
-		c.MetaTimeout = 30
+	if c.ChunkTimeout == 0 {
+		c.ChunkTimeout = 30
 	}
 }
 
@@ -91,13 +85,6 @@ func (c *ClientBasic) connect() (pb.FileTransferServiceClient, error) {
 	c.conn = conn
 	c.ctx, c.cancel = context.WithCancel(context.Background())
 	client := pb.NewFileTransferServiceClient(c.conn)
-
-	log.Printf("Connection Configuration:")
-	log.Printf("├─ Max Message Size: %d MB (Send/Recv)", common.MaxMsgSize/(1024*1024))
-	log.Printf("├─ Connect Timeout: %d seconds (configurable)", c.ConnectTimeout)
-	log.Printf("├─ Metadata Timeout: %d seconds (configurable)", c.MetaTimeout)
-	log.Printf("├─ Stream Timeout: No limit (continuous transfer)")
-	log.Printf("└─ Retry Policy: Max 4 attempts, 3s~30s backoff (UNAVAILABLE, UNKNOWN)")
 
 	return client, nil
 }
@@ -144,81 +131,113 @@ func (c *ClientBasic) UploadFile(fileTag, filePath string) (string, error) {
 		return "", err
 	}
 
-	// 发送 meta 数据
-	log.Printf("File Metadata: %s (Size: %d Byte, Chunks: %d x %d Byte, Hash: %s)\n",
-		fileName, fileSize, fileChunks, c.Chunksize, fileHash)
+	log.Printf("[Upload] Metadata tag=%s, name=%s, size=%d, chunks=%d x %d Byte, hash=%s\n",
+		fileTag, fileName, fileSize, fileChunks, c.Chunksize, fileHash)
 
-	metaCtx, metaCancel := context.WithTimeout(c.ctx, time.Duration(c.MetaTimeout)*time.Second)
-	defer metaCancel()
-
-	res, err := client.SendMeta(metaCtx, &pb.MetaRequest{
-		Name:   fileName,
-		Size:   fileSize,
-		Chunks: fileChunks,
-		Hash:   fileHash,
-		Tag:    fileTag,
-	})
+	stream, err := client.UploadFile(c.ctx)
 	if err != nil {
 		return "", err
 	}
 
-	metaStatus := res.GetStatus()
-	metaMessage := res.GetMessage()
-
-	if !metaStatus {
-		return metaMessage, nil
+	// 1. send metadata
+	if err := stream.Send(&pb.UploadRequest{
+		Payload: &pb.UploadRequest_Metadata{
+			Metadata: &pb.FileMetadata{
+				Tag:       fileTag,
+				Name:      fileName,
+				Size:      fileSize,
+				Chunks:    fileChunks,
+				Chunksize: int64(c.Chunksize),
+				Hash:      fileHash,
+			},
+		},
+	}); err != nil {
+		stream.CloseSend()
+		return "", fmt.Errorf("failed to send metadata: %w", err)
 	}
 
-	md := metadata.Pairs(
-		"file-tag", fileTag,
-		"file-name", fileName,
-		"file-hash", fileHash,
-		"file-size", strconv.FormatInt(fileSize, 10),
-		"file-chunks", strconv.FormatInt(fileChunks, 10),
-	)
-
-	ctx := metadata.NewOutgoingContext(c.ctx, md)
-
-	stream, err := client.UploadFile(ctx)
+	ack, err := stream.Recv()
 	if err != nil {
-		return "", err
+		stream.CloseSend()
+		return "", fmt.Errorf("failed to receive ack: %w", err)
 	}
 
-	// 打开文件
+	// 2. check ack
+	metaAck := ack.GetMetaAck()
+	if metaAck == nil || !metaAck.AllowUpload {
+		message := "server rejected upload"
+		if metaAck != nil {
+			message = metaAck.Message
+		} else if result := ack.GetResult(); result != nil {
+			message = result.Message
+		}
+		stream.CloseSend()
+		return message, nil
+	}
+
+	log.Printf("[Upload] Server ack: %s\n", metaAck.Message)
+	log.Printf("[Upload] Server allowed, starting transfer\n")
+
+	// 3. send file chunks
 	fileBody, err := os.Open(filePath)
 	if err != nil {
+		stream.CloseSend()
 		return "", err
 	}
 	defer fileBody.Close()
 
 	startTime := time.Now()
-
 	// 发送文件流
 	buffer := make([]byte, c.Chunksize)
 	for chunk := int64(1); chunk <= fileChunks; chunk++ {
+		chunkCtx, chunkCancel := context.WithTimeout(c.ctx, time.Duration(c.ChunkTimeout)*time.Second)
+
 		// 计算分片偏移量
 		fileChunkOffset := (chunk - 1) * int64(c.Chunksize)
-		fileBody.Seek(fileChunkOffset, 0)
+		if _, err := fileBody.Seek(fileChunkOffset, 0); err != nil {
+			chunkCancel()
+			stream.CloseSend()
+			return "", fmt.Errorf("failed to seek file at chunk %d: %w", chunk, err)
+		}
 
 		// 调整最后一个分片的大小
 		remainingSize := fileSize - fileChunkOffset
+		readBuffer := buffer
 		if int64(len(buffer)) > remainingSize {
-			buffer = make([]byte, remainingSize)
+			readBuffer = buffer[:remainingSize]
 		}
 
 		// 读取数据
-		n, err := fileBody.Read(buffer)
+		n, err := fileBody.Read(readBuffer)
 		if err != nil {
-			return "", err
+			chunkCancel()
+			stream.CloseSend()
+			return "", fmt.Errorf("failed to read file at chunk %d: %w", chunk, err)
 		}
 
-		// 发送数据
-		err = stream.Send(&pb.ChunkData{
-			Chunk: chunk,
-			Data:  buffer[:n],
-		})
-		if err != nil {
-			return "", err
+		sendErr := make(chan error, 1)
+		go func() {
+			sendErr <- stream.Send(&pb.UploadRequest{
+				Payload: &pb.UploadRequest_Chunk{
+					Chunk: &pb.ChunkData{
+						Chunk: chunk,
+						Data:  readBuffer[:n],
+					},
+				},
+			})
+		}()
+
+		select {
+		case <-chunkCtx.Done():
+			chunkCancel()
+			stream.CloseSend()
+			return "", fmt.Errorf("chunk %d/%d send timeout after %ds", chunk, fileChunks, c.ChunkTimeout)
+		case err := <-sendErr:
+			chunkCancel()
+			if err != nil {
+				stream.CloseSend()
+				return "", fmt.Errorf("failed to send chunk %d/%d: %w", chunk, fileChunks, err)
+			}
 		}
 
 		// 显示进度
@@ -229,29 +248,31 @@ func (c *ClientBasic) UploadFile(fileTag, filePath string) (string, error) {
 	speed := float64(fileSize) / elapsed.Seconds()
 	speedStr := common.FormatSpeed(speed)
 
-	// 关闭流并接收响应
-	streamRes, err := stream.CloseAndRecv()
+	log.Printf("[Upload] Complete: %s, speed=%s\n", fileName, speedStr)
+
+	if err := stream.CloseSend(); err != nil {
+		return "", fmt.Errorf("failed to close send: %w", err)
+	}
+
+	resp, err := stream.Recv()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to receive final response: %w", err)
 	}
 
-	streamStatus := streamRes.GetStatus()
-	streamMessage := streamRes.GetMessage()
-
-	if !streamStatus {
-		log.Printf("Upload failed: %s\n", streamMessage)
-	} else {
-		log.Printf("Upload succeed: %s, speed=%s\n", fileName, speedStr)
+	result := resp.GetResult()
+	if result == nil {
+		return "", fmt.Errorf("unexpected response type: result is nil")
 	}
 
-	return streamMessage, nil
+	if !result.Status {
+		return "", fmt.Errorf("upload failed: %s", result.Message)
+	}
+
+	log.Printf("[Upload] Success: %s\n", result.Message)
+	return result.Message, nil
 }
 
-func (c *ClientBasic) DownloadFile(fileTag, savePath string) (string, error) {
-	return "", nil
-}
-
-func (c *ClientBasic) ListFiles(fileTag string) ([]*pb.FileItem, error) {
+func (c *ClientBasic) ListFiles(fileTag string) ([]*pb.ListFileItem, error) {
 	client, err := c.connect()
 	if err != nil {
 		return nil, err

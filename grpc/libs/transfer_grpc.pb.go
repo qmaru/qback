@@ -22,7 +22,6 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	FileTransferService_ServerCheck_FullMethodName  = "/pb.FileTransferService/ServerCheck"
-	FileTransferService_SendMeta_FullMethodName     = "/pb.FileTransferService/SendMeta"
 	FileTransferService_ListFiles_FullMethodName    = "/pb.FileTransferService/ListFiles"
 	FileTransferService_UploadFile_FullMethodName   = "/pb.FileTransferService/UploadFile"
 	FileTransferService_DownloadFile_FullMethodName = "/pb.FileTransferService/DownloadFile"
@@ -33,10 +32,9 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type FileTransferServiceClient interface {
 	ServerCheck(ctx context.Context, in *Ping, opts ...grpc.CallOption) (*Pong, error)
-	SendMeta(ctx context.Context, in *MetaRequest, opts ...grpc.CallOption) (*MetaResponse, error)
 	ListFiles(ctx context.Context, in *ListFilesRequest, opts ...grpc.CallOption) (*ListFilesResponse, error)
-	UploadFile(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[ChunkData, TransferResponse], error)
-	DownloadFile(ctx context.Context, in *TransferRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ChunkData], error)
+	UploadFile(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[UploadRequest, UploadResponse], error)
+	DownloadFile(ctx context.Context, in *DownloadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[DownloadResponse], error)
 }
 
 type fileTransferServiceClient struct {
@@ -57,16 +55,6 @@ func (c *fileTransferServiceClient) ServerCheck(ctx context.Context, in *Ping, o
 	return out, nil
 }
 
-func (c *fileTransferServiceClient) SendMeta(ctx context.Context, in *MetaRequest, opts ...grpc.CallOption) (*MetaResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(MetaResponse)
-	err := c.cc.Invoke(ctx, FileTransferService_SendMeta_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *fileTransferServiceClient) ListFiles(ctx context.Context, in *ListFilesRequest, opts ...grpc.CallOption) (*ListFilesResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListFilesResponse)
@@ -77,26 +65,26 @@ func (c *fileTransferServiceClient) ListFiles(ctx context.Context, in *ListFiles
 	return out, nil
 }
 
-func (c *fileTransferServiceClient) UploadFile(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[ChunkData, TransferResponse], error) {
+func (c *fileTransferServiceClient) UploadFile(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[UploadRequest, UploadResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &FileTransferService_ServiceDesc.Streams[0], FileTransferService_UploadFile_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[ChunkData, TransferResponse]{ClientStream: stream}
+	x := &grpc.GenericClientStream[UploadRequest, UploadResponse]{ClientStream: stream}
 	return x, nil
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type FileTransferService_UploadFileClient = grpc.ClientStreamingClient[ChunkData, TransferResponse]
+type FileTransferService_UploadFileClient = grpc.BidiStreamingClient[UploadRequest, UploadResponse]
 
-func (c *fileTransferServiceClient) DownloadFile(ctx context.Context, in *TransferRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ChunkData], error) {
+func (c *fileTransferServiceClient) DownloadFile(ctx context.Context, in *DownloadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[DownloadResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &FileTransferService_ServiceDesc.Streams[1], FileTransferService_DownloadFile_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[TransferRequest, ChunkData]{ClientStream: stream}
+	x := &grpc.GenericClientStream[DownloadRequest, DownloadResponse]{ClientStream: stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -107,17 +95,16 @@ func (c *fileTransferServiceClient) DownloadFile(ctx context.Context, in *Transf
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type FileTransferService_DownloadFileClient = grpc.ServerStreamingClient[ChunkData]
+type FileTransferService_DownloadFileClient = grpc.ServerStreamingClient[DownloadResponse]
 
 // FileTransferServiceServer is the server API for FileTransferService service.
 // All implementations must embed UnimplementedFileTransferServiceServer
 // for forward compatibility.
 type FileTransferServiceServer interface {
 	ServerCheck(context.Context, *Ping) (*Pong, error)
-	SendMeta(context.Context, *MetaRequest) (*MetaResponse, error)
 	ListFiles(context.Context, *ListFilesRequest) (*ListFilesResponse, error)
-	UploadFile(grpc.ClientStreamingServer[ChunkData, TransferResponse]) error
-	DownloadFile(*TransferRequest, grpc.ServerStreamingServer[ChunkData]) error
+	UploadFile(grpc.BidiStreamingServer[UploadRequest, UploadResponse]) error
+	DownloadFile(*DownloadRequest, grpc.ServerStreamingServer[DownloadResponse]) error
 	mustEmbedUnimplementedFileTransferServiceServer()
 }
 
@@ -131,16 +118,13 @@ type UnimplementedFileTransferServiceServer struct{}
 func (UnimplementedFileTransferServiceServer) ServerCheck(context.Context, *Ping) (*Pong, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ServerCheck not implemented")
 }
-func (UnimplementedFileTransferServiceServer) SendMeta(context.Context, *MetaRequest) (*MetaResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SendMeta not implemented")
-}
 func (UnimplementedFileTransferServiceServer) ListFiles(context.Context, *ListFilesRequest) (*ListFilesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListFiles not implemented")
 }
-func (UnimplementedFileTransferServiceServer) UploadFile(grpc.ClientStreamingServer[ChunkData, TransferResponse]) error {
+func (UnimplementedFileTransferServiceServer) UploadFile(grpc.BidiStreamingServer[UploadRequest, UploadResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method UploadFile not implemented")
 }
-func (UnimplementedFileTransferServiceServer) DownloadFile(*TransferRequest, grpc.ServerStreamingServer[ChunkData]) error {
+func (UnimplementedFileTransferServiceServer) DownloadFile(*DownloadRequest, grpc.ServerStreamingServer[DownloadResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method DownloadFile not implemented")
 }
 func (UnimplementedFileTransferServiceServer) mustEmbedUnimplementedFileTransferServiceServer() {}
@@ -182,24 +166,6 @@ func _FileTransferService_ServerCheck_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _FileTransferService_SendMeta_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MetaRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(FileTransferServiceServer).SendMeta(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: FileTransferService_SendMeta_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FileTransferServiceServer).SendMeta(ctx, req.(*MetaRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _FileTransferService_ListFiles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListFilesRequest)
 	if err := dec(in); err != nil {
@@ -219,22 +185,22 @@ func _FileTransferService_ListFiles_Handler(srv interface{}, ctx context.Context
 }
 
 func _FileTransferService_UploadFile_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(FileTransferServiceServer).UploadFile(&grpc.GenericServerStream[ChunkData, TransferResponse]{ServerStream: stream})
+	return srv.(FileTransferServiceServer).UploadFile(&grpc.GenericServerStream[UploadRequest, UploadResponse]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type FileTransferService_UploadFileServer = grpc.ClientStreamingServer[ChunkData, TransferResponse]
+type FileTransferService_UploadFileServer = grpc.BidiStreamingServer[UploadRequest, UploadResponse]
 
 func _FileTransferService_DownloadFile_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(TransferRequest)
+	m := new(DownloadRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(FileTransferServiceServer).DownloadFile(m, &grpc.GenericServerStream[TransferRequest, ChunkData]{ServerStream: stream})
+	return srv.(FileTransferServiceServer).DownloadFile(m, &grpc.GenericServerStream[DownloadRequest, DownloadResponse]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type FileTransferService_DownloadFileServer = grpc.ServerStreamingServer[ChunkData]
+type FileTransferService_DownloadFileServer = grpc.ServerStreamingServer[DownloadResponse]
 
 // FileTransferService_ServiceDesc is the grpc.ServiceDesc for FileTransferService service.
 // It's only intended for direct use with grpc.RegisterService,
@@ -248,10 +214,6 @@ var FileTransferService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _FileTransferService_ServerCheck_Handler,
 		},
 		{
-			MethodName: "SendMeta",
-			Handler:    _FileTransferService_SendMeta_Handler,
-		},
-		{
 			MethodName: "ListFiles",
 			Handler:    _FileTransferService_ListFiles_Handler,
 		},
@@ -260,6 +222,7 @@ var FileTransferService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "UploadFile",
 			Handler:       _FileTransferService_UploadFile_Handler,
+			ServerStreams: true,
 			ClientStreams: true,
 		},
 		{
