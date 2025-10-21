@@ -93,7 +93,7 @@ func streamLogInterceptor(srv any, ss grpc.ServerStream, info *grpc.StreamServer
 	return handler(srv, ss)
 }
 
-func (s *ServerBasic) Run() error {
+func (s *ServerBasic) Run(ctx context.Context) error {
 	log.Printf("Listen on %s\n", s.ListenAddress)
 
 	listener, err := net.Listen("tcp", s.ListenAddress)
@@ -134,15 +134,18 @@ func (s *ServerBasic) Run() error {
 	server := grpc.NewServer(opts...)
 	pb.RegisterFileTransferServiceServer(server, &FileService{savePath: s.SavePath, memoryMode: s.MemoryMode})
 
+	go func() {
+		<-ctx.Done()
+		log.Println("Shutting down server...")
+		server.GracefulStop()
+	}()
+
 	log.Println("Server is ready")
 	if s.MemoryMode {
 		log.Println("Memory Mode: ON")
 	}
-	err = server.Serve(listener)
-	if err != nil {
-		return err
-	}
-	return nil
+
+	return server.Serve(listener)
 }
 
 func (s *FileService) sendUploadError(stream pb.FileTransferService_UploadFileServer, message string) error {
@@ -245,6 +248,7 @@ func (s *FileService) UploadFile(stream pb.FileTransferService_UploadFileServer)
 	var recFilePath string
 	var memBuf []byte
 	startTime := time.Now()
+	var totalReceived int64 = 0
 
 	if s.memoryMode {
 		memBuf = make([]byte, 0, fileSize)
@@ -293,6 +297,8 @@ func (s *FileService) UploadFile(stream pb.FileTransferService_UploadFileServer)
 			continue
 		}
 
+		totalReceived += int64(len(fileData))
+
 		if s.memoryMode {
 			memBuf = append(memBuf, fileData...)
 		} else {
@@ -336,13 +342,13 @@ func (s *FileService) UploadFile(stream pb.FileTransferService_UploadFileServer)
 	}
 
 	elapsed := time.Since(startTime)
-	speed := float64(fileSize) / elapsed.Seconds()
+	speed := float64(totalReceived) / elapsed.Seconds()
 	speedStr := common.FormatSpeed(speed)
 
 	if s.memoryMode {
-		log.Printf("[Upload] Success (memory): size=%d, speed=%s\n", len(memBuf), speedStr)
+		log.Printf("[Upload] Success (memory): elapsed=%d, received=%d, speed=%s\n", elapsed.Milliseconds(), totalReceived, speedStr)
 	} else {
-		log.Printf("[Upload] Success: %s, speed=%s\n", fileName, speedStr)
+		log.Printf("[Upload] Success: %s, elapsed=%d, received=%d bytes, speed=%s\n", fileName, elapsed.Milliseconds(), totalReceived, speedStr)
 	}
 
 	return s.sendUploadSuccess(stream, "Receive complete")
@@ -423,6 +429,7 @@ func (s *FileService) DownloadFile(in *pb.DownloadRequest, stream pb.FileTransfe
 
 	log.Println("[Download] Start sending data")
 	var sentChunks int64 = 0
+	var totalSent int64 = 0
 	startTime := time.Now()
 	chunkSize := int(chunkSize64)
 	buffer := make([]byte, chunkSize)
@@ -440,6 +447,7 @@ func (s *FileService) DownloadFile(in *pb.DownloadRequest, stream pb.FileTransfe
 		}
 
 		sentChunks++
+		totalSent += int64(n)
 		if err := stream.Send(&pb.DownloadResponse{
 			Payload: &pb.DownloadResponse_Chunk{
 				Chunk: &pb.ChunkData{
@@ -456,10 +464,10 @@ func (s *FileService) DownloadFile(in *pb.DownloadRequest, stream pb.FileTransfe
 	}
 
 	elapsed := time.Since(startTime)
-	speed := float64(srcFileSize) / elapsed.Seconds()
+	speed := float64(totalSent) / elapsed.Seconds()
 	speedStr := common.FormatSpeed(speed)
 
-	log.Printf("[Download] Complete: %s, speed=%s\n", fileName, speedStr)
+	log.Printf("[Download] Complete: %s, elapsed=%d, sent=%d bytes, speed=%s\n", fileName, elapsed.Milliseconds(), totalSent, speedStr)
 
 	// 3. send result
 	return s.sendDownloadSuccess(stream, "download complete")

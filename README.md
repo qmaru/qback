@@ -25,6 +25,15 @@ Flags:
 Use "qback [command] --help" for more information about a command.
 ```
 
+## benchmark
+
+```shell
+# server
+go run main.go server -m
+# client
+go run main.go client transfer -f "benchmark://test/1048576" -t benchmark
+```
+
 ## container
 
 ```shell

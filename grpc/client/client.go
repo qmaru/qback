@@ -21,6 +21,8 @@ import (
 	"log"
 	"math"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"qback/grpc/common"
@@ -120,18 +122,44 @@ func (c *ClientBasic) UploadFile(fileTag, filePath string) (string, error) {
 	}
 	defer c.close()
 
-	// 获取文件属性
-	fileInfo, err := os.Stat(filePath)
-	if err != nil {
-		return "", err
+	var fileName string
+	var fileSize int64
+	var fileHash string
+	var isBenchmark bool
+
+	if strings.HasPrefix(filePath, "benchmark://") {
+		isBenchmark = true
+		parts := strings.Split(strings.TrimPrefix(filePath, "benchmark://"), "/")
+		if len(parts) != 2 {
+			return "", fmt.Errorf("invalid benchmark file format, use: benchmark://filename/size")
+		}
+		baseFileName := parts[0]
+		fileName = fmt.Sprintf("%s_%d", baseFileName, time.Now().UnixNano())
+		fileSize, err = strconv.ParseInt(parts[1], 10, 64)
+		if err != nil {
+			return "", fmt.Errorf("invalid file size: %w", err)
+		}
+		fileHash, err = c.calcVirtualHash(fileSize)
+		if err != nil {
+			return "", fmt.Errorf("failed to calc virtual hash: %w", err)
+		}
+		log.Printf("[Upload] Benchmark file: name=%s, size=%d\n", fileName, fileSize)
+	} else {
+		fileInfo, err := os.Stat(filePath)
+		if err != nil {
+			return "", err
+		}
+		fileName = fileInfo.Name()
+		fileSize = fileInfo.Size()
+		fileHash, err = common.CalcBlake3(filePath)
+		if err != nil {
+			return "", err
+		}
+
+		log.Printf("[Upload] Real file: name=%s, size=%d\n", fileName, fileSize)
 	}
-	fileName := fileInfo.Name()
-	fileSize := fileInfo.Size()
+
 	fileChunks := int64(math.Ceil(float64(fileSize) / float64(c.Chunksize)))
-	fileHash, err := common.CalcBlake3(filePath)
-	if err != nil {
-		return "", err
-	}
 
 	log.Printf("[Upload] Metadata tag=%s, name=%s, size=%d, chunks=%d x %d Byte, hash=%s\n",
 		fileTag, fileName, fileSize, fileChunks, c.Chunksize, fileHash)
@@ -180,77 +208,113 @@ func (c *ClientBasic) UploadFile(fileTag, filePath string) (string, error) {
 	log.Printf("[Upload] Server ack: %s\n", metaAck.Message)
 	log.Printf("[Upload] Server allowed, starting transfer\n")
 
-	// 3. send file chunks
-	fileBody, err := os.Open(filePath)
-	if err != nil {
-		stream.CloseSend()
-		return "", err
-	}
-	defer fileBody.Close()
-
 	startTime := time.Now()
-	// 发送文件流
 	buffer := make([]byte, c.Chunksize)
-	for chunk := int64(1); chunk <= fileChunks; chunk++ {
-		chunkCtx, chunkCancel := context.WithTimeout(c.ctx, time.Duration(c.ChunkTimeout)*time.Second)
+	var totalSent int64 = 0
 
-		// 计算分片偏移量
-		fileChunkOffset := (chunk - 1) * int64(c.Chunksize)
-		if _, err := fileBody.Seek(fileChunkOffset, 0); err != nil {
-			chunkCancel()
-			stream.CloseSend()
-			return "", fmt.Errorf("failed to seek file at chunk %d: %w", chunk, err)
-		}
+	if isBenchmark {
+		for chunk := int64(1); chunk <= fileChunks; chunk++ {
+			chunkCtx, chunkCancel := context.WithTimeout(c.ctx, time.Duration(c.ChunkTimeout)*time.Second)
 
-		// 调整最后一个分片的大小
-		remainingSize := fileSize - fileChunkOffset
-		readBuffer := buffer
-		if int64(len(buffer)) > remainingSize {
-			readBuffer = buffer[:remainingSize]
-		}
-
-		// 读取数据
-		n, err := fileBody.Read(readBuffer)
-		if err != nil {
-			chunkCancel()
-			stream.CloseSend()
-			return "", fmt.Errorf("failed to read file at chunk %d: %w", chunk, err)
-		}
-
-		sendErr := make(chan error, 1)
-		go func() {
-			sendErr <- stream.Send(&pb.UploadRequest{
-				Payload: &pb.UploadRequest_Chunk{
-					Chunk: &pb.ChunkData{
-						Chunk: chunk,
-						Data:  readBuffer[:n],
-					},
-				},
-			})
-		}()
-
-		select {
-		case <-chunkCtx.Done():
-			chunkCancel()
-			stream.CloseSend()
-			return "", fmt.Errorf("chunk %d/%d send timeout after %ds", chunk, fileChunks, c.ChunkTimeout)
-		case err := <-sendErr:
-			chunkCancel()
-			if err != nil {
-				stream.CloseSend()
-				return "", fmt.Errorf("failed to send chunk %d/%d: %w", chunk, fileChunks, err)
+			remainingSize := fileSize - (chunk-1)*int64(c.Chunksize)
+			chunkSize := int64(c.Chunksize)
+			if remainingSize < chunkSize {
+				chunkSize = remainingSize
 			}
+
+			sendErr := make(chan error, 1)
+			go func(data []byte, chunkNum int64) {
+				sendErr <- stream.Send(&pb.UploadRequest{
+					Payload: &pb.UploadRequest_Chunk{
+						Chunk: &pb.ChunkData{
+							Chunk: chunkNum,
+							Data:  data,
+						},
+					},
+				})
+			}(buffer[:chunkSize], chunk)
+
+			select {
+			case <-chunkCtx.Done():
+				chunkCancel()
+				stream.CloseSend()
+				return "", fmt.Errorf("chunk %d/%d send timeout after %ds", chunk, fileChunks, c.ChunkTimeout)
+			case err := <-sendErr:
+				chunkCancel()
+				if err != nil {
+					stream.CloseSend()
+					return "", fmt.Errorf("failed to send chunk %d/%d: %w", chunk, fileChunks, err)
+				}
+				totalSent += chunkSize
+			}
+
+			common.ShowProgress(chunk, fileChunks)
 		}
+	} else {
+		// 3. send file chunks
+		fileBody, err := os.Open(filePath)
+		if err != nil {
+			stream.CloseSend()
+			return "", err
+		}
+		defer fileBody.Close()
 
-		// 显示进度
-		common.ShowProgress(chunk, fileChunks)
+		for chunk := int64(1); chunk <= fileChunks; chunk++ {
+			chunkCtx, chunkCancel := context.WithTimeout(c.ctx, time.Duration(c.ChunkTimeout)*time.Second)
+
+			// 计算分片偏移量
+			fileChunkOffset := (chunk - 1) * int64(c.Chunksize)
+			if _, err := fileBody.Seek(fileChunkOffset, 0); err != nil {
+				chunkCancel()
+				stream.CloseSend()
+				return "", fmt.Errorf("failed to seek file at chunk %d: %w", chunk, err)
+			}
+
+			// 调整最后一个分片的大小
+			remainingSize := fileSize - fileChunkOffset
+			readBuffer := buffer
+			if int64(len(buffer)) > remainingSize {
+				readBuffer = buffer[:remainingSize]
+			}
+
+			// 读取数据
+			n, err := fileBody.Read(readBuffer)
+			if err != nil {
+				chunkCancel()
+				stream.CloseSend()
+				return "", fmt.Errorf("failed to read file at chunk %d: %w", chunk, err)
+			}
+
+			sendErr := make(chan error, 1)
+			go func() {
+				sendErr <- stream.Send(&pb.UploadRequest{
+					Payload: &pb.UploadRequest_Chunk{
+						Chunk: &pb.ChunkData{
+							Chunk: chunk,
+							Data:  readBuffer[:n],
+						},
+					},
+				})
+			}()
+
+			select {
+			case <-chunkCtx.Done():
+				chunkCancel()
+				stream.CloseSend()
+				return "", fmt.Errorf("chunk %d/%d send timeout after %ds", chunk, fileChunks, c.ChunkTimeout)
+			case err := <-sendErr:
+				chunkCancel()
+				if err != nil {
+					stream.CloseSend()
+					return "", fmt.Errorf("failed to send chunk %d/%d: %w", chunk, fileChunks, err)
+				}
+				totalSent += int64(n)
+			}
+
+			// 显示进度
+			common.ShowProgress(chunk, fileChunks)
+		}
 	}
-
-	elapsed := time.Since(startTime)
-	speed := float64(fileSize) / elapsed.Seconds()
-	speedStr := common.FormatSpeed(speed)
-
-	log.Printf("[Upload] Complete: %s, speed=%s\n", fileName, speedStr)
 
 	if err := stream.CloseSend(); err != nil {
 		return "", fmt.Errorf("failed to close send: %w", err)
@@ -270,6 +334,11 @@ func (c *ClientBasic) UploadFile(fileTag, filePath string) (string, error) {
 		return "", fmt.Errorf("upload failed: %s", result.Message)
 	}
 
+	elapsed := time.Since(startTime)
+	speed := float64(totalSent) / elapsed.Seconds()
+	speedStr := common.FormatSpeed(speed)
+
+	log.Printf("[Upload] Complete: %s, elapsed=%d, speed=%s (sent: %d bytes)\n", fileName, elapsed.Milliseconds(), speedStr, totalSent)
 	log.Printf("[Upload] Success: %s\n", result.Message)
 	return result.Message, nil
 }
@@ -343,6 +412,7 @@ func (c *ClientBasic) DownloadFile(fileTag, fileName, savePath string) (string, 
 
 	bufWriter := bufio.NewWriterSize(recFile, 64*1024)
 	var receivedChunks int64
+	var totalReceived int64 = 0
 	startTime := time.Now()
 
 	log.Println("[Download] Start receiving data")
@@ -423,6 +493,8 @@ func (c *ClientBasic) DownloadFile(fileTag, fileName, savePath string) (string, 
 			continue
 		}
 
+		totalReceived += int64(len(data))
+
 		// 写入数据
 		if _, err := bufWriter.Write(data); err != nil {
 			if bufWriter != nil {
@@ -468,10 +540,10 @@ func (c *ClientBasic) DownloadFile(fileTag, fileName, savePath string) (string, 
 	}
 
 	elapsed := time.Since(startTime)
-	speed := float64(fileSize) / elapsed.Seconds()
+	speed := float64(totalReceived) / elapsed.Seconds()
 	speedStr := common.FormatSpeed(speed)
 
-	log.Printf("[Download] Complete: %s, size=%d, speed=%s\n", fileName, fileSize, speedStr)
+	log.Printf("[Download] Complete: %s, elapsed: %d, received=%d bytes, speed=%s\n", fileName, elapsed.Milliseconds(), totalReceived, speedStr)
 	log.Printf("[Download] Saved to: %s\n", recFilePath)
 
 	return recFilePath, nil
@@ -498,4 +570,24 @@ func (c *ClientBasic) ListFiles(fileTag string) ([]*pb.ListFileItem, error) {
 	}
 
 	return nil, fmt.Errorf("%s", response.GetMessage())
+}
+
+func (c *ClientBasic) calcVirtualHash(fileSize int64) (string, error) {
+	buffer := make([]byte, c.Chunksize)
+
+	var data []byte
+	var written int64
+
+	for written < fileSize {
+		remainingSize := fileSize - written
+		if remainingSize < int64(c.Chunksize) {
+			data = append(data, buffer[:remainingSize]...)
+			written += remainingSize
+		} else {
+			data = append(data, buffer...)
+			written += int64(c.Chunksize)
+		}
+	}
+
+	return common.CalcBlake3FromBytes(data)
 }

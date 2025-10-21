@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"log"
 
 	"qback/grpc/server"
@@ -19,14 +20,17 @@ var (
 				log.Fatal("flag required: --dir (-d) is required when memory mode is disabled")
 			}
 
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
 			qServer := server.ServerBasic{
 				ListenAddress: ServiceAddress,
 				Secure:        ServiceWithSecure,
 				SavePath:      savePath,
 				MemoryMode:    memoryMode,
 			}
-			err := qServer.Run()
-			if err != nil {
+
+			if err := qServer.Run(ctx); err != nil {
 				log.Fatal(err)
 			}
 		},
