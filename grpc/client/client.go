@@ -14,8 +14,10 @@
 package client
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"os"
@@ -270,6 +272,209 @@ func (c *ClientBasic) UploadFile(fileTag, filePath string) (string, error) {
 
 	log.Printf("[Upload] Success: %s\n", result.Message)
 	return result.Message, nil
+}
+
+func (c *ClientBasic) DownloadFile(fileTag, fileName, savePath string) (string, error) {
+	ok, err := common.FileIsExist(savePath, fileTag, fileName, "")
+
+	if err != nil {
+		return "", fmt.Errorf("check file exist failed: %w", err)
+	} else if ok {
+		log.Printf("[Download] File already exists: %s\n", fileName)
+		return "", fmt.Errorf("file already exists: %s", fileName)
+	}
+
+	client, err := c.connect()
+	if err != nil {
+		return "", err
+	}
+	defer c.close()
+
+	log.Printf("[Download] Request: tag=%s, name=%s, chunksize=%d\n", fileTag, fileName, c.Chunksize)
+
+	stream, err := client.DownloadFile(c.ctx, &pb.DownloadRequest{
+		Tag:       fileTag,
+		Name:      fileName,
+		Chunksize: int64(c.Chunksize),
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to create download stream: %w", err)
+	}
+
+	// 1. 接收元数据
+	resp, err := stream.Recv()
+	if err != nil {
+		return "", fmt.Errorf("failed to receive metadata: %w", err)
+	}
+
+	// 处理响应
+	if resp.GetPayload() == nil {
+		return "", fmt.Errorf("unexpected response type: payload is nil")
+	}
+
+	metadata := resp.GetMetadata()
+	if metadata == nil {
+		if result := resp.GetResult(); result != nil {
+			return "", fmt.Errorf("server error: %s", result.Message)
+		}
+		return "", fmt.Errorf("missing metadata")
+	}
+
+	fileSize := metadata.GetSize()
+	fileChunks := metadata.GetChunks()
+	fileHash := metadata.GetHash()
+
+	log.Printf("[Download] Metadata: size=%d, chunks=%d x %d Byte, hash=%s\n",
+		fileSize, fileChunks, metadata.GetChunksize(), fileHash)
+
+	dstFilePath, err := common.SetTargetFilePath(savePath, fileTag, fileName)
+	if err != nil {
+		return "", fmt.Errorf("create target file path failed: %w", err)
+	}
+
+	recFile, err := common.OpenTargetFile(dstFilePath, common.FileWrite)
+	if err != nil {
+		return "", fmt.Errorf("failed to open target file: %w", err)
+	}
+	defer recFile.Close()
+
+	recFilePath := dstFilePath
+
+	bufWriter := bufio.NewWriterSize(recFile, 64*1024)
+	var receivedChunks int64
+	startTime := time.Now()
+
+	log.Println("[Download] Start receiving data")
+
+	for {
+		chunkCtx, chunkCancel := context.WithTimeout(c.ctx, time.Duration(c.ChunkTimeout)*time.Second)
+
+		respChan := make(chan *pb.DownloadResponse, 1)
+		errChan := make(chan error, 1)
+
+		go func() {
+			resp, err := stream.Recv()
+			if err != nil {
+				errChan <- err
+				return
+			}
+			respChan <- resp
+		}()
+
+		var resp *pb.DownloadResponse
+		var err error
+
+		select {
+		case <-chunkCtx.Done():
+			chunkCancel()
+			if bufWriter != nil {
+				_ = bufWriter.Flush()
+			}
+			if recFile != nil {
+				_ = recFile.Close()
+			}
+			_ = os.Remove(recFilePath)
+			return "", fmt.Errorf("chunk receive timeout after %ds", c.ChunkTimeout)
+		case err = <-errChan:
+			chunkCancel()
+			if err == io.EOF {
+				break
+			}
+			if bufWriter != nil {
+				_ = bufWriter.Flush()
+			}
+			if recFile != nil {
+				_ = recFile.Close()
+			}
+			_ = os.Remove(recFilePath)
+			return "", fmt.Errorf("failed to receive chunk: %w", err)
+		case resp = <-respChan:
+			chunkCancel()
+		}
+
+		if err == io.EOF {
+			break
+		}
+
+		// 检查是否是结果消息
+		if result := resp.GetResult(); result != nil {
+			if !result.Status {
+				if bufWriter != nil {
+					_ = bufWriter.Flush()
+				}
+				if recFile != nil {
+					_ = recFile.Close()
+				}
+				os.Remove(recFilePath)
+				return "", fmt.Errorf("download failed: %s", result.Message)
+			}
+			log.Printf("[Download] Server confirmed: %s\n", result.Message)
+			break
+		}
+
+		chunk := resp.GetChunk()
+		if chunk == nil {
+			continue
+		}
+
+		data := chunk.GetData()
+		if len(data) == 0 {
+			continue
+		}
+
+		// 写入数据
+		if _, err := bufWriter.Write(data); err != nil {
+			if bufWriter != nil {
+				_ = bufWriter.Flush()
+			}
+			if recFile != nil {
+				_ = recFile.Close()
+			}
+			os.Remove(recFilePath)
+			return "", fmt.Errorf("failed to write chunk: %w", err)
+		}
+
+		receivedChunks = chunk.GetChunk()
+		common.ShowProgress(receivedChunks, fileChunks)
+	}
+
+	if err := bufWriter.Flush(); err != nil {
+		if recFile != nil {
+			_ = recFile.Close()
+		}
+		_ = os.Remove(recFilePath)
+		return "", fmt.Errorf("failed to flush: %w", err)
+	}
+
+	if err := recFile.Sync(); err != nil {
+		if recFile != nil {
+			_ = recFile.Close()
+		}
+		_ = os.Remove(recFilePath)
+		return "", fmt.Errorf("failed to sync: %w", err)
+	}
+
+	if err := common.ValidateFileIntegrity(common.FileValidationInfo{
+		FilePath:     recFilePath,
+		ExpectedSize: fileSize,
+		ExpectedHash: fileHash,
+	}); err != nil {
+		if recFile != nil {
+			_ = recFile.Close()
+		}
+		_ = os.Remove(recFilePath)
+		return "", fmt.Errorf("validation error: %w", err)
+	}
+
+	elapsed := time.Since(startTime)
+	speed := float64(fileSize) / elapsed.Seconds()
+	speedStr := common.FormatSpeed(speed)
+
+	log.Printf("[Download] Complete: %s, size=%d, speed=%s\n", fileName, fileSize, speedStr)
+	log.Printf("[Download] Saved to: %s\n", recFilePath)
+
+	return recFilePath, nil
 }
 
 func (c *ClientBasic) ListFiles(fileTag string) ([]*pb.ListFileItem, error) {

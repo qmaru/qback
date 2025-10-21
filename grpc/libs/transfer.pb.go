@@ -587,6 +587,7 @@ type DownloadRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Tag           string                 `protobuf:"bytes,1,opt,name=tag,proto3" json:"tag,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Chunksize     int64                  `protobuf:"varint,3,opt,name=chunksize,proto3" json:"chunksize,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -633,6 +634,13 @@ func (x *DownloadRequest) GetName() string {
 		return x.Name
 	}
 	return ""
+}
+
+func (x *DownloadRequest) GetChunksize() int64 {
+	if x != nil {
+		return x.Chunksize
+	}
+	return 0
 }
 
 type DownloadResponse struct {
@@ -941,10 +949,11 @@ const file_transfer_proto_rawDesc = "" +
 	"\breceived\x18\x02 \x01(\bR\breceived\"B\n" +
 	"\x0eTransferResult\x12\x16\n" +
 	"\x06status\x18\x01 \x01(\bR\x06status\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"7\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"U\n" +
 	"\x0fDownloadRequest\x12\x10\n" +
 	"\x03tag\x18\x01 \x01(\tR\x03tag\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\"\xa2\x01\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1c\n" +
+	"\tchunksize\x18\x03 \x01(\x03R\tchunksize\"\xa2\x01\n" +
 	"\x10DownloadResponse\x12.\n" +
 	"\bmetadata\x18\x01 \x01(\v2\x10.pb.FileMetadataH\x00R\bmetadata\x12%\n" +
 	"\x05chunk\x18\x02 \x01(\v2\r.pb.ChunkDataH\x00R\x05chunk\x12,\n" +

@@ -14,6 +14,7 @@ import (
 var (
 	reverse      bool
 	remoteTag    string
+	remoteName   string
 	localFile    string
 	localDir     string
 	chunkTimeout int
@@ -48,6 +49,11 @@ var (
 
 			if reverse {
 				log.Printf("Starting reverse transfer: server to client\n")
+				result, err := qClient.DownloadFile(remoteTag, remoteName, localDir)
+				if err != nil {
+					log.Fatal(err)
+				}
+				log.Println(result)
 				return
 			}
 
@@ -115,6 +121,7 @@ func init() {
 	ClientRoot.PersistentFlags().IntVarP(&fileChunk, "chunksize", "c", 1048576, "File chunksize [byte]")
 
 	transferCmd.Flags().StringVarP(&remoteTag, "tag", "t", "", "Remote tag")
+	transferCmd.Flags().StringVarP(&remoteName, "name", "n", "", "Remote file name")
 	transferCmd.Flags().StringVarP(&localFile, "file", "f", "", "Local file")
 	transferCmd.Flags().StringVarP(&localDir, "dir", "d", "", "Local directory")
 	transferCmd.Flags().BoolVarP(&reverse, "reverse", "r", false, "Reverse transfer (server to client)")

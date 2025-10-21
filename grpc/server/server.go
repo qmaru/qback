@@ -25,6 +25,7 @@ import (
 
 	"qback/grpc/common"
 	pb "qback/grpc/libs"
+	"qback/utils"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -43,14 +44,6 @@ type FileService struct {
 	savePath   string
 	memoryMode bool
 	pb.UnimplementedFileTransferServiceServer
-}
-
-type FileValidationInfo struct {
-	Data         []byte
-	FilePath     string
-	ExpectedSize int64
-	ExpectedHash string
-	IsMemory     bool
 }
 
 // unaryLoggerMid
@@ -98,40 +91,6 @@ func streamLogInterceptor(srv any, ss grpc.ServerStream, info *grpc.StreamServer
 		return err
 	}
 	return handler(srv, ss)
-}
-
-func validateFileIntegrity(info FileValidationInfo) error {
-	var recHash string
-	var actualSize int64
-	var err error
-
-	if info.IsMemory {
-		recHash, err = common.CalcBlake3FromBytes(info.Data)
-		actualSize = int64(len(info.Data))
-	} else {
-		recHash, err = common.CalcBlake3(info.FilePath)
-		if err == nil {
-			fileInfo, err := os.Stat(info.FilePath)
-			if err != nil {
-				return fmt.Errorf("stat file error: %v", err)
-			}
-			actualSize = fileInfo.Size()
-		}
-	}
-
-	if err != nil {
-		return fmt.Errorf("hash calculation error: %v", err)
-	}
-
-	if actualSize != info.ExpectedSize {
-		return fmt.Errorf("size mismatch: expected=%d got=%d", info.ExpectedSize, actualSize)
-	}
-
-	if recHash != info.ExpectedHash {
-		return fmt.Errorf("hash mismatch: expected=%s got=%s", info.ExpectedHash, recHash)
-	}
-
-	return nil
 }
 
 func (s *ServerBasic) Run() error {
@@ -208,6 +167,28 @@ func (s *FileService) sendUploadSuccess(stream pb.FileTransferService_UploadFile
 	})
 }
 
+func (s *FileService) sendDownloadError(stream pb.FileTransferService_DownloadFileServer, message string) error {
+	return stream.Send(&pb.DownloadResponse{
+		Payload: &pb.DownloadResponse_Result{
+			Result: &pb.TransferResult{
+				Status:  false,
+				Message: message,
+			},
+		},
+	})
+}
+
+func (s *FileService) sendDownloadSuccess(stream pb.FileTransferService_DownloadFileServer, message string) error {
+	return stream.Send(&pb.DownloadResponse{
+		Payload: &pb.DownloadResponse_Result{
+			Result: &pb.TransferResult{
+				Status:  true,
+				Message: message,
+			},
+		},
+	})
+}
+
 func (s *FileService) ServerCheck(ctx context.Context, in *pb.Ping) (*pb.Pong, error) {
 	log.Printf("[Ping] Received")
 	if in.GetStatus() {
@@ -238,7 +219,7 @@ func (s *FileService) UploadFile(stream pb.FileTransferService_UploadFileServer)
 		fileTag, fileName, fileSize, fileChunks, fileChunksize, fileHash)
 
 	if !s.memoryMode {
-		ok, err := FileIsExist(s.savePath, fileTag, fileName, fileHash)
+		ok, err := common.FileIsExist(s.savePath, fileTag, fileName, fileHash)
 		if err != nil {
 			log.Printf("[Upload] File error: %s \n", err.Error())
 			return s.sendUploadError(stream, "File not found")
@@ -268,13 +249,13 @@ func (s *FileService) UploadFile(stream pb.FileTransferService_UploadFileServer)
 	if s.memoryMode {
 		memBuf = make([]byte, 0, fileSize)
 	} else {
-		dstFilePath, err := SetTargetFilePath(s.savePath, fileTag, fileName)
+		dstFilePath, err := common.SetTargetFilePath(s.savePath, fileTag, fileName)
 		if err != nil {
 			log.Printf("[Upload] Create file path error: %s \n", err.Error())
 			return s.sendUploadError(stream, "File upload path unavailable")
 		}
 
-		recFile, err = OpenTargetFile(dstFilePath, FileWrite)
+		recFile, err = common.OpenTargetFile(dstFilePath, common.FileWrite)
 		if err != nil {
 			log.Printf("[Upload] Create file error: %s \n", err.Error())
 			return s.sendUploadError(stream, "Failed to access destination file")
@@ -340,7 +321,7 @@ func (s *FileService) UploadFile(stream pb.FileTransferService_UploadFileServer)
 		}
 	}
 
-	if err := validateFileIntegrity(FileValidationInfo{
+	if err := common.ValidateFileIntegrity(common.FileValidationInfo{
 		Data:         memBuf,
 		FilePath:     recFilePath,
 		ExpectedSize: fileSize,
@@ -367,6 +348,123 @@ func (s *FileService) UploadFile(stream pb.FileTransferService_UploadFileServer)
 	return s.sendUploadSuccess(stream, "Receive complete")
 }
 
+func (s *FileService) DownloadFile(in *pb.DownloadRequest, stream pb.FileTransferService_DownloadFileServer) error {
+	fileTag := in.GetTag()
+	fileName := in.GetName()
+	fileChunksize := in.GetChunksize()
+
+	log.Printf("[Download] Request: tag=%s, name=%s, chunksize=%d\n", fileTag, fileName, fileChunksize)
+
+	if s.memoryMode {
+		return s.sendDownloadError(stream, "download not supported in Memory Mode")
+	}
+
+	ok, err := common.FileIsExist(s.savePath, fileTag, fileName, "")
+	if err != nil {
+		log.Printf("[Download] File error: %s \n", err.Error())
+		return s.sendDownloadError(stream, "file not found")
+	}
+
+	if !ok {
+		log.Printf("[Download] File %s/%s does not exist\n", fileTag, fileName)
+		return s.sendDownloadError(stream, "file does not exist")
+	}
+
+	srcFilePath := utils.FileSuite.JoinPath(s.savePath, fileTag, fileName)
+
+	srcFileInfo, err := os.Stat(srcFilePath)
+	if err != nil {
+		log.Printf("[Download] Stat error: %s \n", err.Error())
+		return s.sendDownloadError(stream, "file access error")
+	}
+
+	srcFileSize := srcFileInfo.Size()
+	chunkSize64 := fileChunksize
+	if chunkSize64 <= 0 {
+		log.Printf("[Download] Invalid chunksize: %d\n", chunkSize64)
+		return s.sendDownloadError(stream, "invalid chunksize")
+	}
+	totalChunks := (srcFileSize + chunkSize64 - 1) / chunkSize64
+
+	srcFileHash, err := common.CalcBlake3(srcFilePath)
+	if err != nil {
+		log.Printf("[Download] Hash calculation error: %s \n", err.Error())
+		return s.sendDownloadError(stream, "hash calculation error")
+	}
+
+	// 1. send metadata
+	if err := stream.Send(&pb.DownloadResponse{
+		Payload: &pb.DownloadResponse_Metadata{
+			Metadata: &pb.FileMetadata{
+				Tag:       fileTag,
+				Name:      fileName,
+				Size:      srcFileSize,
+				Chunks:    totalChunks,
+				Chunksize: chunkSize64,
+				Hash:      srcFileHash,
+			},
+		},
+	}); err != nil {
+		log.Printf("[Download] Send metadata error: %s \n", err.Error())
+		return fmt.Errorf("failed to send metadata")
+	}
+
+	log.Printf("[Download] Metadata sent: size=%d, chunks=%d x %d Byte, hash=%s\n",
+		srcFileSize, totalChunks, chunkSize64, srcFileHash)
+
+	file, err := common.OpenTargetFile(srcFilePath, common.FileRead)
+	if err != nil {
+		log.Printf("[Download] Open error: %s \n", err.Error())
+		return s.sendDownloadError(stream, "file open error")
+	}
+	defer file.Close()
+
+	bufReader := bufio.NewReaderSize(file, 64*1024)
+
+	log.Println("[Download] Start sending data")
+	var sentChunks int64 = 0
+	startTime := time.Now()
+	chunkSize := int(chunkSize64)
+	buffer := make([]byte, chunkSize)
+
+	// 2. send file data
+	for {
+		n, err := bufReader.Read(buffer)
+		if err != nil && err != io.EOF {
+			log.Printf("[Download] Read error: %s \n", err.Error())
+			return s.sendDownloadError(stream, "file read error")
+		}
+
+		if n == 0 {
+			break
+		}
+
+		sentChunks++
+		if err := stream.Send(&pb.DownloadResponse{
+			Payload: &pb.DownloadResponse_Chunk{
+				Chunk: &pb.ChunkData{
+					Chunk: sentChunks,
+					Data:  buffer[:n],
+				},
+			},
+		}); err != nil {
+			log.Printf("[Download] Send error: %s \n", err.Error())
+			return s.sendDownloadError(stream, "file send error")
+		}
+
+		common.ShowProgress(sentChunks, totalChunks)
+	}
+
+	elapsed := time.Since(startTime)
+	speed := float64(srcFileSize) / elapsed.Seconds()
+	speedStr := common.FormatSpeed(speed)
+
+	log.Printf("[Download] Complete: %s, speed=%s\n", fileName, speedStr)
+
+	// 3. send result
+	return s.sendDownloadSuccess(stream, "download complete")
+}
+
 func (s *FileService) ListFiles(ctx context.Context, in *pb.ListFilesRequest) (*pb.ListFilesResponse, error) {
 	if s.memoryMode {
 		return &pb.ListFilesResponse{
@@ -377,7 +475,7 @@ func (s *FileService) ListFiles(ctx context.Context, in *pb.ListFilesRequest) (*
 	}
 
 	tag := in.GetTag()
-	files, err := GetFileList(s.savePath, tag)
+	files, err := common.GetFileList(s.savePath, tag)
 	if err != nil {
 		return &pb.ListFilesResponse{
 			Status:  false,

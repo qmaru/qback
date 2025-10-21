@@ -1,13 +1,20 @@
-package server
+package common
 
 import (
 	"fmt"
 	"os"
 
-	"qback/grpc/common"
 	pb "qback/grpc/libs"
 	"qback/utils"
 )
+
+type FileValidationInfo struct {
+	Data         []byte
+	FilePath     string
+	ExpectedSize int64
+	ExpectedHash string
+	IsMemory     bool
+}
 
 type FileMode int
 
@@ -44,7 +51,7 @@ func GetFileList(savePath, fileTag string) ([]*pb.ListFileItem, error) {
 			size := info.Size()
 
 			filePath := utils.FileSuite.JoinPath(targetFolder, name)
-			hash, err := common.CalcBlake3(filePath)
+			hash, err := CalcBlake3(filePath)
 			if err != nil {
 				return nil, fmt.Errorf("calc file hash failed: %w", err)
 			}
@@ -88,23 +95,25 @@ func FileIsExist(savePath, fileTag, fileName, fileHash string) (bool, error) {
 		return false, nil
 	}
 
-	// 检查哈希值
-	currentHash, err := common.CalcBlake3(targetFile)
-	if err != nil {
-		return false, err
-	}
-
-	// 哈希值为空则文件不存在
-	if currentHash == "" {
-		return false, nil
-	}
-
-	// 文件存在但哈希值不同则重传
-	if currentHash != fileHash {
-		if err := os.Remove(targetFile); err != nil {
-			return false, fmt.Errorf("remove file failed: %w", err)
+	if fileHash != "" {
+		// 检查哈希值
+		currentHash, err := CalcBlake3(targetFile)
+		if err != nil {
+			return false, err
 		}
-		return false, nil
+
+		// 哈希值为空则文件不存在
+		if currentHash == "" {
+			return false, nil
+		}
+
+		// 文件存在但哈希值不同则重传
+		if currentHash != fileHash {
+			if err := os.Remove(targetFile); err != nil {
+				return false, fmt.Errorf("remove file failed: %w", err)
+			}
+			return false, nil
+		}
 	}
 
 	return true, nil
@@ -128,4 +137,38 @@ func OpenTargetFile(targetFilePath string, mode FileMode) (*os.File, error) {
 	}
 
 	return recFile, nil
+}
+
+func ValidateFileIntegrity(info FileValidationInfo) error {
+	var recHash string
+	var actualSize int64
+	var err error
+
+	if info.IsMemory {
+		recHash, err = CalcBlake3FromBytes(info.Data)
+		actualSize = int64(len(info.Data))
+	} else {
+		recHash, err = CalcBlake3(info.FilePath)
+		if err == nil {
+			fileInfo, err := os.Stat(info.FilePath)
+			if err != nil {
+				return fmt.Errorf("stat file error: %v", err)
+			}
+			actualSize = fileInfo.Size()
+		}
+	}
+
+	if err != nil {
+		return fmt.Errorf("hash calculation error: %v", err)
+	}
+
+	if actualSize != info.ExpectedSize {
+		return fmt.Errorf("size mismatch: expected=%d got=%d", info.ExpectedSize, actualSize)
+	}
+
+	if recHash != info.ExpectedHash {
+		return fmt.Errorf("hash mismatch: expected=%s got=%s", info.ExpectedHash, recHash)
+	}
+
+	return nil
 }
