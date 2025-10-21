@@ -6,24 +6,17 @@ package pb;
 option go_package = "grpc/libs/;libs";
 
 service FileTransferService {
-    rpc ServerCheck (Ping) returns (Pong) {};
-    rpc SendMeta(MetaRequest) returns (MetaResponse) {};
-    rpc SendFile(stream FileRequest) returns (FileResponse) {};
+  rpc ServerCheck(Ping) returns (Pong) {};
+  rpc SendMeta(MetaRequest) returns (MetaResponse) {};
+  rpc ListFiles(ListFilesRequest) returns (ListFilesResponse) {};
+  rpc UploadFile(stream ChunkData) returns (TransferResponse) {};
+  rpc DownloadFile(TransferRequest) returns (stream ChunkData) {};
 }
 
-message Ping {
-  bool status = 1;
-}
+message Ping { bool status = 1; }
 
-message Pong {
-  bool status = 1;
-}
+message Pong { bool status = 1; }
 
-// tag 标签
-// name 文件名
-// size 文件大小
-// chunks 分片数量
-// hash 文件 MD5
 message MetaRequest {
   string tag = 1;
   string name = 2;
@@ -32,20 +25,37 @@ message MetaRequest {
   string hash = 5;
 }
 
-// 服务端是否接收数据
 message MetaResponse {
   bool status = 1;
   string message = 2;
 }
 
-// 文件类型，文件内容和分片
-message FileRequest {
+message ChunkData {
   bytes data = 1;
   int64 chunk = 2;
 }
 
-// 服务端完成接收
-message FileResponse {
+message TransferRequest {
+  string tag = 1;
+  string name = 2;
+}
+
+message TransferResponse {
   bool status = 1;
   string message = 2;
+}
+
+message FileItem {
+  string name = 1;
+  int64 size = 2;
+  string hash = 3;
+  int64 chunks = 4;
+}
+
+message ListFilesRequest { string tag = 1; }
+
+message ListFilesResponse {
+  bool status = 1;
+  string message = 2;
+  repeated FileItem files = 3;
 }

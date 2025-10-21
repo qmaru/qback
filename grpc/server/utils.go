@@ -5,8 +5,53 @@ import (
 	"os"
 
 	"qback/grpc/common"
+	pb "qback/grpc/libs"
 	"qback/utils"
 )
+
+func GetFileList(savePath, fileTag string) ([]*pb.FileItem, error) {
+	if savePath == "" || fileTag == "" {
+		return nil, fmt.Errorf("savePath or fileTag is empty")
+	}
+
+	dstFolder := utils.FileSuite.JoinPath(savePath, fileTag)
+
+	if !utils.FileSuite.Exists(dstFolder) {
+		return nil, fmt.Errorf("folder not exists")
+	}
+
+	files, err := os.ReadDir(dstFolder)
+	if err != nil {
+		return nil, fmt.Errorf("read dir failed: %w", err)
+	}
+
+	var fileList []*pb.FileItem
+	for _, file := range files {
+		if !file.IsDir() {
+			name := file.Name()
+			info, err := file.Info()
+			if err != nil {
+				return nil, fmt.Errorf("get file info failed: %w", err)
+			}
+			size := info.Size()
+
+			filePath := utils.FileSuite.JoinPath(dstFolder, name)
+			hash, err := common.CalcBlake3(filePath)
+			if err != nil {
+				return nil, fmt.Errorf("calc file hash failed: %w", err)
+			}
+
+			fileList = append(fileList, &pb.FileItem{
+				Name:   name,
+				Size:   size,
+				Hash:   hash,
+				Chunks: 0,
+			})
+		}
+	}
+
+	return fileList, nil
+}
 
 // SetDstFilePath 设置文件路径
 func SetDstFilePath(savePath, fileTag, fileName string) (string, error) {

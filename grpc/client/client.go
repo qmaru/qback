@@ -15,6 +15,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"math"
 	"os"
@@ -123,7 +124,7 @@ func (c *ClientBasic) ServerCheck() error {
 	return nil
 }
 
-func (c *ClientBasic) FileStream(fileTag, filePath string) (string, error) {
+func (c *ClientBasic) UploadFile(fileTag, filePath string) (string, error) {
 	client, err := c.connect()
 	if err != nil {
 		return "", err
@@ -178,7 +179,7 @@ func (c *ClientBasic) FileStream(fileTag, filePath string) (string, error) {
 
 	ctx := metadata.NewOutgoingContext(c.ctx, md)
 
-	stream, err := client.SendFile(ctx)
+	stream, err := client.UploadFile(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -212,7 +213,7 @@ func (c *ClientBasic) FileStream(fileTag, filePath string) (string, error) {
 		}
 
 		// 发送数据
-		err = stream.Send(&pb.FileRequest{
+		err = stream.Send(&pb.ChunkData{
 			Chunk: chunk,
 			Data:  buffer[:n],
 		})
@@ -244,4 +245,31 @@ func (c *ClientBasic) FileStream(fileTag, filePath string) (string, error) {
 	}
 
 	return streamMessage, nil
+}
+
+func (c *ClientBasic) DownloadFile(fileTag, savePath string) (string, error) {
+	return "", nil
+}
+
+func (c *ClientBasic) ListFiles(fileTag string) ([]*pb.FileItem, error) {
+	client, err := c.connect()
+	if err != nil {
+		return nil, err
+	}
+	defer c.close()
+
+	checkCtx, checkCancel := context.WithTimeout(c.ctx, 5*time.Second)
+	defer checkCancel()
+
+	response, err := client.ListFiles(checkCtx, &pb.ListFilesRequest{Tag: fileTag})
+	if err != nil {
+		return nil, err
+	}
+
+	if response.GetStatus() {
+		return response.GetFiles(), nil
+
+	}
+
+	return nil, fmt.Errorf("%s", response.GetMessage())
 }

@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"fmt"
 	"log"
 	"time"
 
 	"qback/grpc/client"
+	"qback/utils"
 
 	"github.com/spf13/cobra"
 )
@@ -34,7 +36,7 @@ var (
 				Chunksize:      fileChunk,
 			}
 
-			result, err := qClient.FileStream(sourceTag, sourceFile)
+			result, err := qClient.UploadFile(sourceTag, sourceFile)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -64,6 +66,36 @@ var (
 			}
 		},
 	}
+
+	listCmd = &cobra.Command{
+		Use:   "list",
+		Short: "List server files",
+		Run: func(cmd *cobra.Command, args []string) {
+			qClient := client.ClientBasic{
+				ServerAddress:  ServiceAddress,
+				ConnectTimeout: connecttimeout,
+				MetaTimeout:    metatimeout,
+				Secure:         ServiceWithSecure,
+			}
+
+			files, err := qClient.ListFiles(sourceTag)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			log.Printf("Server list under %s tag\n", sourceTag)
+			if len(files) == 0 {
+				log.Println("No files found")
+				return
+			}
+
+			result, err := utils.JSONSuite.Json.MarshalIndent(files, "", "  ")
+			if err != nil {
+				log.Fatal(err)
+			}
+			fmt.Println(string(result))
+		},
+	}
 )
 
 func init() {
@@ -76,6 +108,10 @@ func init() {
 	transferCmd.MarkFlagRequired("tag")
 	transferCmd.MarkFlagRequired("file")
 
+	listCmd.Flags().StringVarP(&sourceTag, "tag", "t", "", "Source tag")
+	listCmd.MarkFlagRequired("tag")
+
 	ClientRoot.AddCommand(transferCmd)
 	ClientRoot.AddCommand(pingCmd)
+	ClientRoot.AddCommand(listCmd)
 }
