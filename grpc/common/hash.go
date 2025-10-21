@@ -24,3 +24,15 @@ func CalcBlake3(filepath string) (string, error) {
 	bhash := utils.Blake3Suite.SumStream()
 	return bhash.ToHex(), nil
 }
+
+func CalcBlake3FromBytes(data []byte) (string, error) {
+	utils.Blake3Suite.Reset()
+
+	_, err := utils.Blake3Suite.Write(data)
+	if err != nil {
+		return "", err
+	}
+
+	bhash := utils.Blake3Suite.SumStream()
+	return bhash.ToHex(), nil
+}

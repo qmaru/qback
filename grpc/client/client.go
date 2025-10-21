@@ -190,6 +190,8 @@ func (c *ClientBasic) FileStream(fileTag, filePath string) (string, error) {
 	}
 	defer fileBody.Close()
 
+	startTime := time.Now()
+
 	// 发送文件流
 	buffer := make([]byte, c.Chunksize)
 	for chunk := int64(1); chunk <= fileChunks; chunk++ {
@@ -222,6 +224,10 @@ func (c *ClientBasic) FileStream(fileTag, filePath string) (string, error) {
 		common.ShowProgress(chunk, fileChunks)
 	}
 
+	elapsed := time.Since(startTime)
+	speed := float64(fileSize) / elapsed.Seconds()
+	speedStr := common.FormatSpeed(speed)
+
 	// 关闭流并接收响应
 	streamRes, err := stream.CloseAndRecv()
 	if err != nil {
@@ -233,6 +239,8 @@ func (c *ClientBasic) FileStream(fileTag, filePath string) (string, error) {
 
 	if !streamStatus {
 		log.Printf("Upload failed: %s\n", streamMessage)
+	} else {
+		log.Printf("Upload succeed: %s, speed=%s\n", fileName, speedStr)
 	}
 
 	return streamMessage, nil

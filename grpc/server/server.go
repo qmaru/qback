@@ -37,10 +37,12 @@ type ServerBasic struct {
 	ListenAddress string
 	SavePath      string
 	Secure        bool
+	MemoryMode    bool
 }
 
 type FileService struct {
-	savePath string
+	savePath   string
+	memoryMode bool
 	pb.UnimplementedFileTransferServiceServer
 }
 
@@ -90,7 +92,7 @@ func logInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, ha
 	return handler(ctx, req)
 }
 
-func streamLogInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+func streamLogInterceptor(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	err := streamLoggerMid(ss.Context(), info)
 	if err != nil {
 		return err
@@ -137,9 +139,12 @@ func (s *ServerBasic) Run() error {
 		opts = append(opts, grpc.Creds(creds))
 	}
 	server := grpc.NewServer(opts...)
-	pb.RegisterFileTransferServiceServer(server, &FileService{savePath: s.SavePath})
+	pb.RegisterFileTransferServiceServer(server, &FileService{savePath: s.SavePath, memoryMode: s.MemoryMode})
 
 	log.Println("Server is ready")
+	if s.MemoryMode {
+		log.Println("Memory Mode: ON")
+	}
 	err = server.Serve(listener)
 	if err != nil {
 		return err
@@ -161,20 +166,22 @@ func (s *FileService) SendMeta(ctx context.Context, in *pb.MetaRequest) (*pb.Met
 
 	log.Printf("[SendMeta] Received: tag=%s, name=%s, hash=%s\n", fileTag, fileName, fileHash)
 
-	ok, err := FileIsExist(s.savePath, fileTag, fileName, fileHash)
-	if err != nil {
-		log.Printf("[SendMeta] Check file error: %v\n", err)
-		return &pb.MetaResponse{Status: false, Message: "Check file error: " + err.Error()}, nil
+	if !s.memoryMode {
+		ok, err := FileIsExist(s.savePath, fileTag, fileName, fileHash)
+		if err != nil {
+			log.Printf("[SendMeta] Check file error: %v\n", err)
+			return &pb.MetaResponse{Status: false, Message: "Check file error: " + err.Error()}, nil
+		}
+
+		log.Printf("[SendMeta] FileIsExist returned: %v\n", ok)
+
+		if ok {
+			log.Printf("[SendMeta] File already exists, returning false status\n")
+			return &pb.MetaResponse{Status: false, Message: "File already exists"}, nil
+		}
+
+		log.Printf("[SendMeta] File does not exist, allowing upload\n")
 	}
-
-	log.Printf("[SendMeta] FileIsExist returned: %v\n", ok)
-
-	if ok {
-		log.Printf("[SendMeta] File already exists, returning false status\n")
-		return &pb.MetaResponse{Status: false, Message: "File already exists"}, nil
-	}
-
-	log.Printf("[SendMeta] File does not exist, allowing upload\n")
 
 	fileSize := in.GetSize()
 	fileChunks := in.GetChunks()
@@ -240,66 +247,100 @@ func (s *FileService) SendFile(stream pb.FileTransferService_SendFileServer) err
 		return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "Missing file-chunks in metadata"})
 	}
 
-	dstFilePath, err := SetDstFilePath(s.savePath, transferCtx.fileTag, transferCtx.fileName)
-	if err != nil {
-		log.Printf("Get save filepath error: %v\n", err)
-		return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "Server receive failed: " + err.Error()})
+	var bufWriter *bufio.Writer
+	var recFile *os.File
+	var recFileName string
+	var memBuf []byte
+	startTime := time.Now()
+
+	if s.memoryMode {
+		memBuf = make([]byte, 0, transferCtx.fileSize)
+	} else {
+		var err error
+		dstFilePath, err := SetDstFilePath(s.savePath, transferCtx.fileTag, transferCtx.fileName)
+		if err != nil {
+			log.Printf("Get save filepath error: %v\n", err)
+			return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "Server receive failed: " + err.Error()})
+		}
+
+		recFile, err = CreateSaveFile(dstFilePath)
+		if err != nil {
+			log.Printf("Create save file error: %v\n", err)
+			return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "Server receive failed: " + err.Error()})
+		}
+
+		recFileName = recFile.Name()
+		defer recFile.Close()
+		bufWriter = bufio.NewWriterSize(recFile, 64*1024)
 	}
-
-	recFile, err := CreateSaveFile(dstFilePath)
-	if err != nil {
-		log.Printf("Create save file error: %v\n", err)
-		return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "Server receive failed: " + err.Error()})
-	}
-
-	recFileName := recFile.Name()
-	defer recFile.Close()
-
-	bufWriter := bufio.NewWriterSize(recFile, 64*1024)
 
 	for {
 		in, err := stream.Recv()
 
 		if err == io.EOF {
-			if err := bufWriter.Flush(); err != nil {
-				log.Printf("Flush buffer error: %v\n", err)
-				os.Remove(recFileName)
-				return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "Flush failed: " + err.Error()})
-			}
+			elapsed := time.Since(startTime)
+			speed := float64(transferCtx.fileSize) / elapsed.Seconds()
+			speedStr := common.FormatSpeed(speed)
 
-			if err := recFile.Sync(); err != nil {
-				log.Printf("Sync file error: %v\n", err)
-				os.Remove(recFileName)
-				return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "Sync failed: " + err.Error()})
-			}
+			if s.memoryMode {
+				recHash, err := common.CalcBlake3FromBytes(memBuf)
+				if err != nil {
+					log.Printf("Calculate hash error: %v\n", err)
+					return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "File hash error: " + err.Error()})
+				}
 
-			fileInfo, err := os.Stat(recFileName)
-			if err != nil {
-				log.Printf("Stat file error: %v\n", err)
-				os.Remove(recFileName)
-				return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "File stat error: " + err.Error()})
-			}
+				if recHash != transferCtx.fileHash {
+					log.Printf("Hash mismatch: expected %s, got %s (size: %d)\n", transferCtx.fileHash, recHash, len(memBuf))
+					return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "File hash mismatch"})
+				}
 
-			if fileInfo.Size() != transferCtx.fileSize {
-				log.Printf("File size mismatch: expected %d, got %d\n", transferCtx.fileSize, fileInfo.Size())
-				os.Remove(recFileName)
-				return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "File size mismatch"})
-			}
+				if int64(len(memBuf)) != transferCtx.fileSize {
+					log.Printf("File size mismatch: expected %d, got %d\n", transferCtx.fileSize, len(memBuf))
+					return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "File size mismatch"})
+				}
 
-			recHash, err := common.CalcBlake3(recFileName)
-			if err != nil {
-				log.Printf("Calculate hash error: %v\n", err)
-				os.Remove(recFileName)
-				return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "File hash error: " + err.Error()})
-			}
+				log.Printf("Receive succeed (memory mode): size=%d, speed=%s\n", len(memBuf), speedStr)
+			} else {
+				if err := bufWriter.Flush(); err != nil {
+					log.Printf("Flush buffer error: %v\n", err)
+					os.Remove(recFileName)
+					return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "Flush failed: " + err.Error()})
+				}
 
-			if recHash != transferCtx.fileHash {
-				log.Printf("Hash mismatch: expected %s, got %s (file: %s, size: %d)\n", transferCtx.fileHash, recHash, recFileName, fileInfo.Size())
-				os.Remove(recFileName)
-				return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "File hash mismatch"})
-			}
+				if err := recFile.Sync(); err != nil {
+					log.Printf("Sync file error: %v\n", err)
+					os.Remove(recFileName)
+					return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "Sync failed: " + err.Error()})
+				}
 
-			log.Printf("Receive succeed: %s\n", recFileName)
+				fileInfo, err := os.Stat(recFileName)
+				if err != nil {
+					log.Printf("Stat file error: %v\n", err)
+					os.Remove(recFileName)
+					return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "File stat error: " + err.Error()})
+				}
+
+				if fileInfo.Size() != transferCtx.fileSize {
+					log.Printf("File size mismatch: expected %d, got %d\n", transferCtx.fileSize, fileInfo.Size())
+					os.Remove(recFileName)
+					return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "File size mismatch"})
+				}
+
+				recHash, err := common.CalcBlake3(recFileName)
+				if err != nil {
+					log.Printf("Calculate hash error: %v\n", err)
+					os.Remove(recFileName)
+					return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "File hash error: " + err.Error()})
+				}
+
+				if recHash != transferCtx.fileHash {
+					log.Printf("Hash mismatch: expected %s, got %s (file: %s, size: %d)\n", transferCtx.fileHash, recHash, recFileName, fileInfo.Size())
+					os.Remove(recFileName)
+					return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "File hash mismatch"})
+				}
+
+				log.Printf("Receive succeed: %s, speed=%s\n", recFileName, speedStr)
+			}
 
 			return stream.SendAndClose(&pb.FileResponse{Status: true, Message: "Server Receive Succeed"})
 		}
@@ -315,10 +356,14 @@ func (s *FileService) SendFile(stream pb.FileTransferService_SendFileServer) err
 			continue
 		}
 
-		_, err = bufWriter.Write(fileData)
-		if err != nil {
-			log.Printf("Write file error: %v\n", err)
-			return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "Write file failed: " + err.Error()})
+		if s.memoryMode {
+			memBuf = append(memBuf, fileData...)
+		} else {
+			_, err = bufWriter.Write(fileData)
+			if err != nil {
+				log.Printf("Write file error: %v\n", err)
+				return stream.SendAndClose(&pb.FileResponse{Status: false, Message: "Write file failed: " + err.Error()})
+			}
 		}
 
 		// 进度条
