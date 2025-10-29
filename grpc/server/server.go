@@ -15,7 +15,6 @@ package server
 import (
 	"bufio"
 	"context"
-	"crypto/tls"
 	"fmt"
 	"io"
 	"log"
@@ -115,19 +114,10 @@ func (s *ServerBasic) Run(ctx context.Context) error {
 
 	if s.Secure {
 		log.Println("TLS ON")
-		tlsConfig, certPool, err := common.GenTLSInfo("server")
+		tlsConfig, err := common.GenTLSInfo("server", true)
 		if err != nil {
 			return err
 		}
-
-		tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
-		tlsConfig.ClientCAs = certPool
-
-		tlsConfig.MinVersion = tls.VersionTLS12
-		tlsConfig.MaxVersion = tls.VersionTLS13
-
-		tlsConfig.Time = func() time.Time { return time.Now() }
-
 		creds := credentials.NewTLS(tlsConfig)
 		opts = append(opts, grpc.Creds(creds))
 	}

@@ -16,6 +16,7 @@ package client
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"log"
@@ -54,15 +55,16 @@ func (c *ClientBasic) connect() (pb.FileTransferServiceClient, error) {
 	c.defaultTimeout()
 
 	var cred credentials.TransportCredentials
+	var tlsConfig *tls.Config
 	if c.Secure {
 		log.Println("TLS ON")
-		tlsConfig, certPool, err := common.GenTLSInfo("client")
+		tlsCfg, err := common.GenTLSInfo("client", true)
 		if err != nil {
 			return nil, err
 		}
-		tlsConfig.ServerName = "127.0.0.1"
-		tlsConfig.RootCAs = certPool
-		cred = credentials.NewTLS(tlsConfig)
+		tlsCfg.ServerName = "127.0.0.1"
+		cred = credentials.NewTLS(tlsCfg)
+		tlsConfig = tlsCfg
 	} else {
 		log.Println("TLS OFF")
 		cred = insecure.NewCredentials()
@@ -84,6 +86,10 @@ func (c *ClientBasic) connect() (pb.FileTransferServiceClient, error) {
 	conn, err := grpc.NewClient(c.ServerAddress, opts...)
 	if err != nil {
 		return nil, err
+	}
+
+	if c.Secure {
+		go common.ProbeTLSConnection(c.ServerAddress, tlsConfig)
 	}
 
 	c.conn = conn
