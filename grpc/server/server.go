@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"qback/grpc/common"
-	pb "qback/grpc/libs"
+	transferv1 "qback/internal/pb/qmeta/transfer/v1"
 	"qback/utils"
 
 	"google.golang.org/grpc"
@@ -42,7 +42,7 @@ type ServerBasic struct {
 type FileService struct {
 	savePath   string
 	memoryMode bool
-	pb.UnimplementedFileTransferServiceServer
+	transferv1.UnimplementedFileTransferServiceServer
 }
 
 // unaryLoggerMid
@@ -122,7 +122,7 @@ func (s *ServerBasic) Run(ctx context.Context) error {
 		opts = append(opts, grpc.Creds(creds))
 	}
 	server := grpc.NewServer(opts...)
-	pb.RegisterFileTransferServiceServer(server, &FileService{savePath: s.SavePath, memoryMode: s.MemoryMode})
+	transferv1.RegisterFileTransferServiceServer(server, &FileService{savePath: s.SavePath, memoryMode: s.MemoryMode})
 
 	go func() {
 		<-ctx.Done()
@@ -138,10 +138,10 @@ func (s *ServerBasic) Run(ctx context.Context) error {
 	return server.Serve(listener)
 }
 
-func (s *FileService) sendUploadError(stream pb.FileTransferService_UploadFileServer, message string) error {
-	return stream.Send(&pb.UploadResponse{
-		Payload: &pb.UploadResponse_Result{
-			Result: &pb.TransferResult{
+func (s *FileService) sendUploadError(stream transferv1.FileTransferService_UploadFileServer, message string) error {
+	return stream.Send(&transferv1.UploadFileResponse{
+		Payload: &transferv1.UploadFileResponse_Result{
+			Result: &transferv1.TransferResult{
 				Status:  false,
 				Message: message,
 			},
@@ -149,10 +149,10 @@ func (s *FileService) sendUploadError(stream pb.FileTransferService_UploadFileSe
 	})
 }
 
-func (s *FileService) sendUploadSuccess(stream pb.FileTransferService_UploadFileServer, message string) error {
-	return stream.Send(&pb.UploadResponse{
-		Payload: &pb.UploadResponse_Result{
-			Result: &pb.TransferResult{
+func (s *FileService) sendUploadSuccess(stream transferv1.FileTransferService_UploadFileServer, message string) error {
+	return stream.Send(&transferv1.UploadFileResponse{
+		Payload: &transferv1.UploadFileResponse_Result{
+			Result: &transferv1.TransferResult{
 				Status:  true,
 				Message: message,
 			},
@@ -160,10 +160,10 @@ func (s *FileService) sendUploadSuccess(stream pb.FileTransferService_UploadFile
 	})
 }
 
-func (s *FileService) sendDownloadError(stream pb.FileTransferService_DownloadFileServer, message string) error {
-	return stream.Send(&pb.DownloadResponse{
-		Payload: &pb.DownloadResponse_Result{
-			Result: &pb.TransferResult{
+func (s *FileService) sendDownloadError(stream transferv1.FileTransferService_DownloadFileServer, message string) error {
+	return stream.Send(&transferv1.DownloadFileResponse{
+		Payload: &transferv1.DownloadFileResponse_Result{
+			Result: &transferv1.TransferResult{
 				Status:  false,
 				Message: message,
 			},
@@ -171,10 +171,10 @@ func (s *FileService) sendDownloadError(stream pb.FileTransferService_DownloadFi
 	})
 }
 
-func (s *FileService) sendDownloadSuccess(stream pb.FileTransferService_DownloadFileServer, message string) error {
-	return stream.Send(&pb.DownloadResponse{
-		Payload: &pb.DownloadResponse_Result{
-			Result: &pb.TransferResult{
+func (s *FileService) sendDownloadSuccess(stream transferv1.FileTransferService_DownloadFileServer, message string) error {
+	return stream.Send(&transferv1.DownloadFileResponse{
+		Payload: &transferv1.DownloadFileResponse_Result{
+			Result: &transferv1.TransferResult{
 				Status:  true,
 				Message: message,
 			},
@@ -182,15 +182,15 @@ func (s *FileService) sendDownloadSuccess(stream pb.FileTransferService_Download
 	})
 }
 
-func (s *FileService) ServerCheck(ctx context.Context, in *pb.Ping) (*pb.Pong, error) {
+func (s *FileService) ServerCheck(ctx context.Context, in *transferv1.ServerCheckRequest) (*transferv1.ServerCheckResponse, error) {
 	log.Printf("[Ping] Received")
 	if in.GetStatus() {
-		return &pb.Pong{Status: true}, nil
+		return &transferv1.ServerCheckResponse{Status: true}, nil
 	}
-	return &pb.Pong{Status: false}, nil
+	return &transferv1.ServerCheckResponse{Status: false}, nil
 }
 
-func (s *FileService) UploadFile(stream pb.FileTransferService_UploadFileServer) error {
+func (s *FileService) UploadFile(stream transferv1.FileTransferService_UploadFileServer) error {
 	req, err := stream.Recv()
 	if err != nil {
 		return err
@@ -222,9 +222,9 @@ func (s *FileService) UploadFile(stream pb.FileTransferService_UploadFileServer)
 		}
 	}
 
-	if err := stream.Send(&pb.UploadResponse{
-		Payload: &pb.UploadResponse_MetaAck{
-			MetaAck: &pb.MetaAck{
+	if err := stream.Send(&transferv1.UploadFileResponse{
+		Payload: &transferv1.UploadFileResponse_MetaAck{
+			MetaAck: &transferv1.MetaAck{
 				AllowUpload: true,
 				Message:     "Ready to receive",
 			},
@@ -344,7 +344,7 @@ func (s *FileService) UploadFile(stream pb.FileTransferService_UploadFileServer)
 	return s.sendUploadSuccess(stream, "Receive complete")
 }
 
-func (s *FileService) DownloadFile(in *pb.DownloadRequest, stream pb.FileTransferService_DownloadFileServer) error {
+func (s *FileService) DownloadFile(in *transferv1.DownloadFileRequest, stream transferv1.FileTransferService_DownloadFileServer) error {
 	fileTag := in.GetTag()
 	fileName := in.GetName()
 	fileChunksize := in.GetChunksize()
@@ -389,9 +389,9 @@ func (s *FileService) DownloadFile(in *pb.DownloadRequest, stream pb.FileTransfe
 	}
 
 	// 1. send metadata
-	if err := stream.Send(&pb.DownloadResponse{
-		Payload: &pb.DownloadResponse_Metadata{
-			Metadata: &pb.FileMetadata{
+	if err := stream.Send(&transferv1.DownloadFileResponse{
+		Payload: &transferv1.DownloadFileResponse_Metadata{
+			Metadata: &transferv1.FileMetadata{
 				Tag:       fileTag,
 				Name:      fileName,
 				Size:      srcFileSize,
@@ -438,9 +438,9 @@ func (s *FileService) DownloadFile(in *pb.DownloadRequest, stream pb.FileTransfe
 
 		sentChunks++
 		totalSent += int64(n)
-		if err := stream.Send(&pb.DownloadResponse{
-			Payload: &pb.DownloadResponse_Chunk{
-				Chunk: &pb.ChunkData{
+		if err := stream.Send(&transferv1.DownloadFileResponse{
+			Payload: &transferv1.DownloadFileResponse_Chunk{
+				Chunk: &transferv1.ChunkData{
 					Chunk: sentChunks,
 					Data:  buffer[:n],
 				},
@@ -463,9 +463,9 @@ func (s *FileService) DownloadFile(in *pb.DownloadRequest, stream pb.FileTransfe
 	return s.sendDownloadSuccess(stream, "download complete")
 }
 
-func (s *FileService) ListFiles(ctx context.Context, in *pb.ListFilesRequest) (*pb.ListFilesResponse, error) {
+func (s *FileService) ListFiles(ctx context.Context, in *transferv1.ListFilesRequest) (*transferv1.ListFilesResponse, error) {
 	if s.memoryMode {
-		return &pb.ListFilesResponse{
+		return &transferv1.ListFilesResponse{
 			Status:  false,
 			Message: "ListFiles not supported in Memory Mode",
 			Files:   nil,
@@ -475,7 +475,7 @@ func (s *FileService) ListFiles(ctx context.Context, in *pb.ListFilesRequest) (*
 	tag := in.GetTag()
 	files, err := common.GetFileList(s.savePath, tag)
 	if err != nil {
-		return &pb.ListFilesResponse{
+		return &transferv1.ListFilesResponse{
 			Status:  false,
 			Message: "Get file list error: " + err.Error(),
 			Files:   nil,
@@ -484,7 +484,7 @@ func (s *FileService) ListFiles(ctx context.Context, in *pb.ListFilesRequest) (*
 
 	log.Printf("Found %d files under tag %s\n", len(files), tag)
 
-	return &pb.ListFilesResponse{
+	return &transferv1.ListFilesResponse{
 		Status:  true,
 		Message: "File list retrieved successfully",
 		Files:   files,

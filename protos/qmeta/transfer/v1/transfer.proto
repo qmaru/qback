@@ -1,0 +1,106 @@
+syntax = "proto3";
+
+package qmeta.transfer.v1;
+
+// FileTransferService 文件传输服务
+service FileTransferService {
+  // ServerCheck 检查服务器状态
+  rpc ServerCheck(ServerCheckRequest) returns (ServerCheckResponse) {};
+  // ListFiles 列出指定标签下的文件
+  rpc ListFiles(ListFilesRequest) returns (ListFilesResponse) {};
+  // UploadFile 上传文件，使用流式传输
+  rpc UploadFile(stream UploadFileRequest) returns (stream UploadFileResponse) {};
+  // DownloadFile 下载文件，使用流式传输
+  rpc DownloadFile(DownloadFileRequest) returns (stream DownloadFileResponse) {};
+}
+
+// ServerCheckRequest 服务器检查请求
+message ServerCheckRequest { bool status = 1; }
+
+// ServerCheckResponse 服务器检查响应
+message ServerCheckResponse { bool status = 1; }
+
+// FileMetadata 文件元数据
+message FileMetadata {
+  string tag       = 1;
+  string name      = 2;
+  int64  size      = 3;
+  int64  chunks    = 4;
+  int64  chunksize = 5;
+  string hash      = 6;
+}
+
+// ChunkData 文件块数据
+message ChunkData {
+  bytes data  = 1;
+  int64 chunk = 2;
+}
+
+// UploadFileRequest 上传文件请求，包含文件元数据和文件块数据
+message UploadFileRequest {
+  oneof payload {
+    FileMetadata metadata = 1;
+    ChunkData    chunk    = 2;
+  }
+}
+
+// UploadFileResponse 上传文件响应，包含元数据确认、块确认和传输结果
+message UploadFileResponse {
+  oneof payload {
+    MetaAck        meta_ack  = 1;
+    ChunkAck       chunk_ack = 2;
+    TransferResult result    = 3;
+  }
+}
+
+// MetaAck 元数据确认，服务器对文件元数据的响应
+message MetaAck {
+  bool   allow_upload = 1;
+  string message      = 2;
+}
+
+// ChunkAck 块确认，服务器对文件块的响应
+message ChunkAck {
+  int64 chunk    = 1;
+  bool  received = 2;
+}
+
+// TransferResult 传输结果，表示上传或下载的最终状态
+message TransferResult {
+  bool   status  = 1;
+  string message = 2;
+}
+
+// DownloadFileRequest 下载文件请求，包含文件标识和块大小
+message DownloadFileRequest {
+  string tag       = 1;
+  string name      = 2;
+  int64  chunksize = 3;
+}
+
+// DownloadFileResponse 下载文件响应，包含文件元数据、块数据和传输结果
+message DownloadFileResponse {
+  oneof payload {
+    FileMetadata   metadata = 1;
+    ChunkData      chunk    = 2;
+    TransferResult result   = 3;
+  }
+}
+
+// ListFileItem 列出文件项，包含文件名、大小、哈希值和修改时间
+message ListFileItem {
+  string name          = 1;
+  int64  size          = 2;
+  string hash          = 3;
+  int64  modified_time = 4;
+}
+
+// ListFilesRequest 列出文件请求，包含文件标签
+message ListFilesRequest { string tag = 1; }
+
+// ListFilesResponse 列出文件响应，包含状态、消息和文件列表
+message ListFilesResponse {
+  bool                  status  = 1;
+  string                message = 2;
+  repeated ListFileItem files   = 3;
+}

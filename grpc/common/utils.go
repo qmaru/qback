@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	pb "qback/grpc/libs"
+	transferv1 "qback/internal/pb/qmeta/transfer/v1"
 	"qback/utils"
 )
 
@@ -24,7 +24,7 @@ const (
 	FileReadWrite
 )
 
-func GetFileList(savePath, fileTag string) ([]*pb.ListFileItem, error) {
+func GetFileList(savePath, fileTag string) ([]*transferv1.ListFileItem, error) {
 	if savePath == "" || fileTag == "" {
 		return nil, fmt.Errorf("savePath or fileTag is empty")
 	}
@@ -40,7 +40,7 @@ func GetFileList(savePath, fileTag string) ([]*pb.ListFileItem, error) {
 		return nil, fmt.Errorf("read dir failed: %w", err)
 	}
 
-	var fileList []*pb.ListFileItem
+	var fileList []*transferv1.ListFileItem
 	for _, file := range files {
 		if !file.IsDir() {
 			name := file.Name()
@@ -58,7 +58,7 @@ func GetFileList(savePath, fileTag string) ([]*pb.ListFileItem, error) {
 
 			mt := info.ModTime()
 
-			fileList = append(fileList, &pb.ListFileItem{
+			fileList = append(fileList, &transferv1.ListFileItem{
 				Name:         name,
 				Size:         size,
 				Hash:         hash,

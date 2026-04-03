@@ -27,7 +27,7 @@ import (
 	"time"
 
 	"qback/grpc/common"
-	pb "qback/grpc/libs"
+	transferv1 "qback/internal/pb/qmeta/transfer/v1"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -50,7 +50,7 @@ func (c *ClientBasic) defaultTimeout() {
 	}
 }
 
-func (c *ClientBasic) connect() (pb.FileTransferServiceClient, error) {
+func (c *ClientBasic) connect() (transferv1.FileTransferServiceClient, error) {
 	log.Printf("Connecting on %s\n", c.ServerAddress)
 	c.defaultTimeout()
 
@@ -94,7 +94,7 @@ func (c *ClientBasic) connect() (pb.FileTransferServiceClient, error) {
 
 	c.conn = conn
 	c.ctx, c.cancel = context.WithCancel(context.Background())
-	client := pb.NewFileTransferServiceClient(c.conn)
+	client := transferv1.NewFileTransferServiceClient(c.conn)
 
 	return client, nil
 }
@@ -114,7 +114,7 @@ func (c *ClientBasic) ServerCheck() error {
 	checkCtx, checkCancel := context.WithTimeout(c.ctx, 5*time.Second)
 	defer checkCancel()
 
-	_, err = client.ServerCheck(checkCtx, &pb.Ping{Status: true})
+	_, err = client.ServerCheck(checkCtx, &transferv1.ServerCheckRequest{Status: true})
 	if err != nil {
 		return err
 	}
@@ -176,9 +176,9 @@ func (c *ClientBasic) UploadFile(fileTag, filePath string) (string, error) {
 	}
 
 	// 1. send metadata
-	if err := stream.Send(&pb.UploadRequest{
-		Payload: &pb.UploadRequest_Metadata{
-			Metadata: &pb.FileMetadata{
+	if err := stream.Send(&transferv1.UploadFileRequest{
+		Payload: &transferv1.UploadFileRequest_Metadata{
+			Metadata: &transferv1.FileMetadata{
 				Tag:       fileTag,
 				Name:      fileName,
 				Size:      fileSize,
@@ -230,9 +230,9 @@ func (c *ClientBasic) UploadFile(fileTag, filePath string) (string, error) {
 
 			sendErr := make(chan error, 1)
 			go func(data []byte, chunkNum int64) {
-				sendErr <- stream.Send(&pb.UploadRequest{
-					Payload: &pb.UploadRequest_Chunk{
-						Chunk: &pb.ChunkData{
+				sendErr <- stream.Send(&transferv1.UploadFileRequest{
+					Payload: &transferv1.UploadFileRequest_Chunk{
+						Chunk: &transferv1.ChunkData{
 							Chunk: chunkNum,
 							Data:  data,
 						},
@@ -293,9 +293,9 @@ func (c *ClientBasic) UploadFile(fileTag, filePath string) (string, error) {
 
 			sendErr := make(chan error, 1)
 			go func() {
-				sendErr <- stream.Send(&pb.UploadRequest{
-					Payload: &pb.UploadRequest_Chunk{
-						Chunk: &pb.ChunkData{
+				sendErr <- stream.Send(&transferv1.UploadFileRequest{
+					Payload: &transferv1.UploadFileRequest_Chunk{
+						Chunk: &transferv1.ChunkData{
 							Chunk: chunk,
 							Data:  readBuffer[:n],
 						},
@@ -367,7 +367,7 @@ func (c *ClientBasic) DownloadFile(fileTag, fileName, savePath string) (string, 
 
 	log.Printf("[Download] Request: tag=%s, name=%s, chunksize=%d\n", fileTag, fileName, c.Chunksize)
 
-	stream, err := client.DownloadFile(c.ctx, &pb.DownloadRequest{
+	stream, err := client.DownloadFile(c.ctx, &transferv1.DownloadFileRequest{
 		Tag:       fileTag,
 		Name:      fileName,
 		Chunksize: int64(c.Chunksize),
@@ -426,7 +426,7 @@ func (c *ClientBasic) DownloadFile(fileTag, fileName, savePath string) (string, 
 	for {
 		chunkCtx, chunkCancel := context.WithTimeout(c.ctx, time.Duration(c.ChunkTimeout)*time.Second)
 
-		respChan := make(chan *pb.DownloadResponse, 1)
+		respChan := make(chan *transferv1.DownloadFileResponse, 1)
 		errChan := make(chan error, 1)
 
 		go func() {
@@ -438,7 +438,7 @@ func (c *ClientBasic) DownloadFile(fileTag, fileName, savePath string) (string, 
 			respChan <- resp
 		}()
 
-		var resp *pb.DownloadResponse
+		var resp *transferv1.DownloadFileResponse
 		var err error
 
 		select {
@@ -555,7 +555,7 @@ func (c *ClientBasic) DownloadFile(fileTag, fileName, savePath string) (string, 
 	return recFilePath, nil
 }
 
-func (c *ClientBasic) ListFiles(fileTag string) ([]*pb.ListFileItem, error) {
+func (c *ClientBasic) ListFiles(fileTag string) ([]*transferv1.ListFileItem, error) {
 	client, err := c.connect()
 	if err != nil {
 		return nil, err
@@ -565,7 +565,7 @@ func (c *ClientBasic) ListFiles(fileTag string) ([]*pb.ListFileItem, error) {
 	checkCtx, checkCancel := context.WithTimeout(c.ctx, 5*time.Second)
 	defer checkCancel()
 
-	response, err := client.ListFiles(checkCtx, &pb.ListFilesRequest{Tag: fileTag})
+	response, err := client.ListFiles(checkCtx, &transferv1.ListFilesRequest{Tag: fileTag})
 	if err != nil {
 		return nil, err
 	}

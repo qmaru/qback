@@ -1,0 +1,5 @@
+# https://buf.build/docs/cli/modules-workspaces/
+version: v2
+
+modules:
+  - path: protos
