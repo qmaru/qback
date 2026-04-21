@@ -101,17 +101,22 @@ var (
 				log.Fatal(err)
 			}
 
-			log.Printf("Server list under %s tag\n", remoteTag)
+			fmt.Printf(">> tag=%s\n", remoteTag)
 			if len(files) == 0 {
 				log.Println("No files found")
 				return
 			}
 
-			result, err := utils.JSONSuite.Json.MarshalIndent(files, "", "  ")
-			if err != nil {
-				log.Fatal(err)
+			for _, file := range files {
+				fmt.Printf(
+					"%-24s  %10s  %-12s  %s\n",
+					file.GetName(),
+					utils.PrettySize(file.GetSize()),
+					utils.PrettyHash(file.GetHash()),
+					time.Unix(file.GetModifiedTime(), 0).Format("2006-01-02 15:04"),
+				)
 			}
-			fmt.Println(string(result))
+			fmt.Println("<<")
 		},
 	}
 )

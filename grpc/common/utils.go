@@ -58,12 +58,13 @@ func GetFileList(savePath, fileTag string) ([]*transferv1.ListFileItem, error) {
 
 			mt := info.ModTime()
 
-			fileList = append(fileList, &transferv1.ListFileItem{
-				Name:         name,
-				Size:         size,
-				Hash:         hash,
-				ModifiedTime: mt.Unix(),
-			})
+			listItem := &transferv1.ListFileItem{}
+			listItem.SetName(name)
+			listItem.SetSize(size)
+			listItem.SetHash(hash)
+			listItem.SetModifiedTime(mt.Unix())
+
+			fileList = append(fileList, listItem)
 		}
 	}
 
