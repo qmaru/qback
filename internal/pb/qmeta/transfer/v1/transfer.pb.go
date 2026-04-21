@@ -10,7 +10,6 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
-	sync "sync"
 	unsafe "unsafe"
 )
 
@@ -23,10 +22,12 @@ const (
 
 // ServerCheckRequest 服务器检查请求
 type ServerCheckRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Status        bool                   `protobuf:"varint,1,opt,name=status,proto3" json:"status,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Status      bool                   `protobuf:"varint,1,opt,name=status"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *ServerCheckRequest) Reset() {
@@ -54,24 +55,55 @@ func (x *ServerCheckRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ServerCheckRequest.ProtoReflect.Descriptor instead.
-func (*ServerCheckRequest) Descriptor() ([]byte, []int) {
-	return file_qmeta_transfer_v1_transfer_proto_rawDescGZIP(), []int{0}
-}
-
 func (x *ServerCheckRequest) GetStatus() bool {
 	if x != nil {
-		return x.Status
+		return x.xxx_hidden_Status
 	}
 	return false
 }
 
+func (x *ServerCheckRequest) SetStatus(v bool) {
+	x.xxx_hidden_Status = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
+}
+
+func (x *ServerCheckRequest) HasStatus() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ServerCheckRequest) ClearStatus() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Status = false
+}
+
+type ServerCheckRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	Status *bool
+}
+
+func (b0 ServerCheckRequest_builder) Build() *ServerCheckRequest {
+	m0 := &ServerCheckRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Status != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		x.xxx_hidden_Status = *b.Status
+	}
+	return m0
+}
+
 // ServerCheckResponse 服务器检查响应
 type ServerCheckResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Status        bool                   `protobuf:"varint,1,opt,name=status,proto3" json:"status,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Status      bool                   `protobuf:"varint,1,opt,name=status"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *ServerCheckResponse) Reset() {
@@ -99,29 +131,60 @@ func (x *ServerCheckResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ServerCheckResponse.ProtoReflect.Descriptor instead.
-func (*ServerCheckResponse) Descriptor() ([]byte, []int) {
-	return file_qmeta_transfer_v1_transfer_proto_rawDescGZIP(), []int{1}
-}
-
 func (x *ServerCheckResponse) GetStatus() bool {
 	if x != nil {
-		return x.Status
+		return x.xxx_hidden_Status
 	}
 	return false
 }
 
+func (x *ServerCheckResponse) SetStatus(v bool) {
+	x.xxx_hidden_Status = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
+}
+
+func (x *ServerCheckResponse) HasStatus() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ServerCheckResponse) ClearStatus() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Status = false
+}
+
+type ServerCheckResponse_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	Status *bool
+}
+
+func (b0 ServerCheckResponse_builder) Build() *ServerCheckResponse {
+	m0 := &ServerCheckResponse{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Status != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		x.xxx_hidden_Status = *b.Status
+	}
+	return m0
+}
+
 // FileMetadata 文件元数据
 type FileMetadata struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Tag           string                 `protobuf:"bytes,1,opt,name=tag,proto3" json:"tag,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Size          int64                  `protobuf:"varint,3,opt,name=size,proto3" json:"size,omitempty"`
-	Chunks        int64                  `protobuf:"varint,4,opt,name=chunks,proto3" json:"chunks,omitempty"`
-	Chunksize     int64                  `protobuf:"varint,5,opt,name=chunksize,proto3" json:"chunksize,omitempty"`
-	Hash          string                 `protobuf:"bytes,6,opt,name=hash,proto3" json:"hash,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Tag         *string                `protobuf:"bytes,1,opt,name=tag"`
+	xxx_hidden_Name        *string                `protobuf:"bytes,2,opt,name=name"`
+	xxx_hidden_Size        int64                  `protobuf:"varint,3,opt,name=size"`
+	xxx_hidden_Chunks      int64                  `protobuf:"varint,4,opt,name=chunks"`
+	xxx_hidden_Chunksize   int64                  `protobuf:"varint,5,opt,name=chunksize"`
+	xxx_hidden_Hash        *string                `protobuf:"bytes,6,opt,name=hash"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *FileMetadata) Reset() {
@@ -149,60 +212,210 @@ func (x *FileMetadata) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use FileMetadata.ProtoReflect.Descriptor instead.
-func (*FileMetadata) Descriptor() ([]byte, []int) {
-	return file_qmeta_transfer_v1_transfer_proto_rawDescGZIP(), []int{2}
-}
-
 func (x *FileMetadata) GetTag() string {
 	if x != nil {
-		return x.Tag
+		if x.xxx_hidden_Tag != nil {
+			return *x.xxx_hidden_Tag
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *FileMetadata) GetName() string {
 	if x != nil {
-		return x.Name
+		if x.xxx_hidden_Name != nil {
+			return *x.xxx_hidden_Name
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *FileMetadata) GetSize() int64 {
 	if x != nil {
-		return x.Size
+		return x.xxx_hidden_Size
 	}
 	return 0
 }
 
 func (x *FileMetadata) GetChunks() int64 {
 	if x != nil {
-		return x.Chunks
+		return x.xxx_hidden_Chunks
 	}
 	return 0
 }
 
 func (x *FileMetadata) GetChunksize() int64 {
 	if x != nil {
-		return x.Chunksize
+		return x.xxx_hidden_Chunksize
 	}
 	return 0
 }
 
 func (x *FileMetadata) GetHash() string {
 	if x != nil {
-		return x.Hash
+		if x.xxx_hidden_Hash != nil {
+			return *x.xxx_hidden_Hash
+		}
+		return ""
 	}
 	return ""
 }
 
+func (x *FileMetadata) SetTag(v string) {
+	x.xxx_hidden_Tag = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 6)
+}
+
+func (x *FileMetadata) SetName(v string) {
+	x.xxx_hidden_Name = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 6)
+}
+
+func (x *FileMetadata) SetSize(v int64) {
+	x.xxx_hidden_Size = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 6)
+}
+
+func (x *FileMetadata) SetChunks(v int64) {
+	x.xxx_hidden_Chunks = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 6)
+}
+
+func (x *FileMetadata) SetChunksize(v int64) {
+	x.xxx_hidden_Chunksize = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 6)
+}
+
+func (x *FileMetadata) SetHash(v string) {
+	x.xxx_hidden_Hash = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 6)
+}
+
+func (x *FileMetadata) HasTag() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *FileMetadata) HasName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *FileMetadata) HasSize() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *FileMetadata) HasChunks() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
+func (x *FileMetadata) HasChunksize() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+}
+
+func (x *FileMetadata) HasHash() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+}
+
+func (x *FileMetadata) ClearTag() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Tag = nil
+}
+
+func (x *FileMetadata) ClearName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Name = nil
+}
+
+func (x *FileMetadata) ClearSize() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_Size = 0
+}
+
+func (x *FileMetadata) ClearChunks() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_Chunks = 0
+}
+
+func (x *FileMetadata) ClearChunksize() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	x.xxx_hidden_Chunksize = 0
+}
+
+func (x *FileMetadata) ClearHash() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
+	x.xxx_hidden_Hash = nil
+}
+
+type FileMetadata_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	Tag       *string
+	Name      *string
+	Size      *int64
+	Chunks    *int64
+	Chunksize *int64
+	Hash      *string
+}
+
+func (b0 FileMetadata_builder) Build() *FileMetadata {
+	m0 := &FileMetadata{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Tag != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 6)
+		x.xxx_hidden_Tag = b.Tag
+	}
+	if b.Name != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 6)
+		x.xxx_hidden_Name = b.Name
+	}
+	if b.Size != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 6)
+		x.xxx_hidden_Size = *b.Size
+	}
+	if b.Chunks != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 6)
+		x.xxx_hidden_Chunks = *b.Chunks
+	}
+	if b.Chunksize != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 6)
+		x.xxx_hidden_Chunksize = *b.Chunksize
+	}
+	if b.Hash != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 6)
+		x.xxx_hidden_Hash = b.Hash
+	}
+	return m0
+}
+
 // ChunkData 文件块数据
 type ChunkData struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Data          []byte                 `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
-	Chunk         int64                  `protobuf:"varint,2,opt,name=chunk,proto3" json:"chunk,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Data        []byte                 `protobuf:"bytes,1,opt,name=data"`
+	xxx_hidden_Chunk       int64                  `protobuf:"varint,2,opt,name=chunk"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *ChunkData) Reset() {
@@ -230,35 +443,85 @@ func (x *ChunkData) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ChunkData.ProtoReflect.Descriptor instead.
-func (*ChunkData) Descriptor() ([]byte, []int) {
-	return file_qmeta_transfer_v1_transfer_proto_rawDescGZIP(), []int{3}
-}
-
 func (x *ChunkData) GetData() []byte {
 	if x != nil {
-		return x.Data
+		return x.xxx_hidden_Data
 	}
 	return nil
 }
 
 func (x *ChunkData) GetChunk() int64 {
 	if x != nil {
-		return x.Chunk
+		return x.xxx_hidden_Chunk
 	}
 	return 0
 }
 
+func (x *ChunkData) SetData(v []byte) {
+	if v == nil {
+		v = []byte{}
+	}
+	x.xxx_hidden_Data = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *ChunkData) SetChunk(v int64) {
+	x.xxx_hidden_Chunk = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *ChunkData) HasData() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ChunkData) HasChunk() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *ChunkData) ClearData() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Data = nil
+}
+
+func (x *ChunkData) ClearChunk() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Chunk = 0
+}
+
+type ChunkData_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	Data  []byte
+	Chunk *int64
+}
+
+func (b0 ChunkData_builder) Build() *ChunkData {
+	m0 := &ChunkData{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Data != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_Data = b.Data
+	}
+	if b.Chunk != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_Chunk = *b.Chunk
+	}
+	return m0
+}
+
 // UploadFileRequest 上传文件请求，包含文件元数据和文件块数据
 type UploadFileRequest struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Types that are valid to be assigned to Payload:
-	//
-	//	*UploadFileRequest_Metadata
-	//	*UploadFileRequest_Chunk
-	Payload       isUploadFileRequest_Payload `protobuf_oneof:"payload"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state              protoimpl.MessageState      `protogen:"opaque.v1"`
+	xxx_hidden_Payload isUploadFileRequest_Payload `protobuf_oneof:"payload"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *UploadFileRequest) Reset() {
@@ -286,21 +549,9 @@ func (x *UploadFileRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UploadFileRequest.ProtoReflect.Descriptor instead.
-func (*UploadFileRequest) Descriptor() ([]byte, []int) {
-	return file_qmeta_transfer_v1_transfer_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *UploadFileRequest) GetPayload() isUploadFileRequest_Payload {
-	if x != nil {
-		return x.Payload
-	}
-	return nil
-}
-
 func (x *UploadFileRequest) GetMetadata() *FileMetadata {
 	if x != nil {
-		if x, ok := x.Payload.(*UploadFileRequest_Metadata); ok {
+		if x, ok := x.xxx_hidden_Payload.(*uploadFileRequest_Metadata); ok {
 			return x.Metadata
 		}
 	}
@@ -309,40 +560,140 @@ func (x *UploadFileRequest) GetMetadata() *FileMetadata {
 
 func (x *UploadFileRequest) GetChunk() *ChunkData {
 	if x != nil {
-		if x, ok := x.Payload.(*UploadFileRequest_Chunk); ok {
+		if x, ok := x.xxx_hidden_Payload.(*uploadFileRequest_Chunk); ok {
 			return x.Chunk
 		}
 	}
 	return nil
 }
 
+func (x *UploadFileRequest) SetMetadata(v *FileMetadata) {
+	if v == nil {
+		x.xxx_hidden_Payload = nil
+		return
+	}
+	x.xxx_hidden_Payload = &uploadFileRequest_Metadata{v}
+}
+
+func (x *UploadFileRequest) SetChunk(v *ChunkData) {
+	if v == nil {
+		x.xxx_hidden_Payload = nil
+		return
+	}
+	x.xxx_hidden_Payload = &uploadFileRequest_Chunk{v}
+}
+
+func (x *UploadFileRequest) HasPayload() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Payload != nil
+}
+
+func (x *UploadFileRequest) HasMetadata() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Payload.(*uploadFileRequest_Metadata)
+	return ok
+}
+
+func (x *UploadFileRequest) HasChunk() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Payload.(*uploadFileRequest_Chunk)
+	return ok
+}
+
+func (x *UploadFileRequest) ClearPayload() {
+	x.xxx_hidden_Payload = nil
+}
+
+func (x *UploadFileRequest) ClearMetadata() {
+	if _, ok := x.xxx_hidden_Payload.(*uploadFileRequest_Metadata); ok {
+		x.xxx_hidden_Payload = nil
+	}
+}
+
+func (x *UploadFileRequest) ClearChunk() {
+	if _, ok := x.xxx_hidden_Payload.(*uploadFileRequest_Chunk); ok {
+		x.xxx_hidden_Payload = nil
+	}
+}
+
+const UploadFileRequest_Payload_not_set_case case_UploadFileRequest_Payload = 0
+const UploadFileRequest_Metadata_case case_UploadFileRequest_Payload = 1
+const UploadFileRequest_Chunk_case case_UploadFileRequest_Payload = 2
+
+func (x *UploadFileRequest) WhichPayload() case_UploadFileRequest_Payload {
+	if x == nil {
+		return UploadFileRequest_Payload_not_set_case
+	}
+	switch x.xxx_hidden_Payload.(type) {
+	case *uploadFileRequest_Metadata:
+		return UploadFileRequest_Metadata_case
+	case *uploadFileRequest_Chunk:
+		return UploadFileRequest_Chunk_case
+	default:
+		return UploadFileRequest_Payload_not_set_case
+	}
+}
+
+type UploadFileRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Fields of oneof xxx_hidden_Payload:
+	Metadata *FileMetadata
+	Chunk    *ChunkData
+	// -- end of xxx_hidden_Payload
+}
+
+func (b0 UploadFileRequest_builder) Build() *UploadFileRequest {
+	m0 := &UploadFileRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Metadata != nil {
+		x.xxx_hidden_Payload = &uploadFileRequest_Metadata{b.Metadata}
+	}
+	if b.Chunk != nil {
+		x.xxx_hidden_Payload = &uploadFileRequest_Chunk{b.Chunk}
+	}
+	return m0
+}
+
+type case_UploadFileRequest_Payload protoreflect.FieldNumber
+
+func (x case_UploadFileRequest_Payload) String() string {
+	md := file_qmeta_transfer_v1_transfer_proto_msgTypes[4].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
 type isUploadFileRequest_Payload interface {
 	isUploadFileRequest_Payload()
 }
 
-type UploadFileRequest_Metadata struct {
-	Metadata *FileMetadata `protobuf:"bytes,1,opt,name=metadata,proto3,oneof"`
+type uploadFileRequest_Metadata struct {
+	Metadata *FileMetadata `protobuf:"bytes,1,opt,name=metadata,oneof"`
 }
 
-type UploadFileRequest_Chunk struct {
-	Chunk *ChunkData `protobuf:"bytes,2,opt,name=chunk,proto3,oneof"`
+type uploadFileRequest_Chunk struct {
+	Chunk *ChunkData `protobuf:"bytes,2,opt,name=chunk,oneof"`
 }
 
-func (*UploadFileRequest_Metadata) isUploadFileRequest_Payload() {}
+func (*uploadFileRequest_Metadata) isUploadFileRequest_Payload() {}
 
-func (*UploadFileRequest_Chunk) isUploadFileRequest_Payload() {}
+func (*uploadFileRequest_Chunk) isUploadFileRequest_Payload() {}
 
 // UploadFileResponse 上传文件响应，包含元数据确认、块确认和传输结果
 type UploadFileResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Types that are valid to be assigned to Payload:
-	//
-	//	*UploadFileResponse_MetaAck
-	//	*UploadFileResponse_ChunkAck
-	//	*UploadFileResponse_Result
-	Payload       isUploadFileResponse_Payload `protobuf_oneof:"payload"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state              protoimpl.MessageState       `protogen:"opaque.v1"`
+	xxx_hidden_Payload isUploadFileResponse_Payload `protobuf_oneof:"payload"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *UploadFileResponse) Reset() {
@@ -370,21 +721,9 @@ func (x *UploadFileResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UploadFileResponse.ProtoReflect.Descriptor instead.
-func (*UploadFileResponse) Descriptor() ([]byte, []int) {
-	return file_qmeta_transfer_v1_transfer_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *UploadFileResponse) GetPayload() isUploadFileResponse_Payload {
-	if x != nil {
-		return x.Payload
-	}
-	return nil
-}
-
 func (x *UploadFileResponse) GetMetaAck() *MetaAck {
 	if x != nil {
-		if x, ok := x.Payload.(*UploadFileResponse_MetaAck); ok {
+		if x, ok := x.xxx_hidden_Payload.(*uploadFileResponse_MetaAck); ok {
 			return x.MetaAck
 		}
 	}
@@ -393,7 +732,7 @@ func (x *UploadFileResponse) GetMetaAck() *MetaAck {
 
 func (x *UploadFileResponse) GetChunkAck() *ChunkAck {
 	if x != nil {
-		if x, ok := x.Payload.(*UploadFileResponse_ChunkAck); ok {
+		if x, ok := x.xxx_hidden_Payload.(*uploadFileResponse_ChunkAck); ok {
 			return x.ChunkAck
 		}
 	}
@@ -402,42 +741,178 @@ func (x *UploadFileResponse) GetChunkAck() *ChunkAck {
 
 func (x *UploadFileResponse) GetResult() *TransferResult {
 	if x != nil {
-		if x, ok := x.Payload.(*UploadFileResponse_Result); ok {
+		if x, ok := x.xxx_hidden_Payload.(*uploadFileResponse_Result); ok {
 			return x.Result
 		}
 	}
 	return nil
 }
 
+func (x *UploadFileResponse) SetMetaAck(v *MetaAck) {
+	if v == nil {
+		x.xxx_hidden_Payload = nil
+		return
+	}
+	x.xxx_hidden_Payload = &uploadFileResponse_MetaAck{v}
+}
+
+func (x *UploadFileResponse) SetChunkAck(v *ChunkAck) {
+	if v == nil {
+		x.xxx_hidden_Payload = nil
+		return
+	}
+	x.xxx_hidden_Payload = &uploadFileResponse_ChunkAck{v}
+}
+
+func (x *UploadFileResponse) SetResult(v *TransferResult) {
+	if v == nil {
+		x.xxx_hidden_Payload = nil
+		return
+	}
+	x.xxx_hidden_Payload = &uploadFileResponse_Result{v}
+}
+
+func (x *UploadFileResponse) HasPayload() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Payload != nil
+}
+
+func (x *UploadFileResponse) HasMetaAck() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Payload.(*uploadFileResponse_MetaAck)
+	return ok
+}
+
+func (x *UploadFileResponse) HasChunkAck() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Payload.(*uploadFileResponse_ChunkAck)
+	return ok
+}
+
+func (x *UploadFileResponse) HasResult() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Payload.(*uploadFileResponse_Result)
+	return ok
+}
+
+func (x *UploadFileResponse) ClearPayload() {
+	x.xxx_hidden_Payload = nil
+}
+
+func (x *UploadFileResponse) ClearMetaAck() {
+	if _, ok := x.xxx_hidden_Payload.(*uploadFileResponse_MetaAck); ok {
+		x.xxx_hidden_Payload = nil
+	}
+}
+
+func (x *UploadFileResponse) ClearChunkAck() {
+	if _, ok := x.xxx_hidden_Payload.(*uploadFileResponse_ChunkAck); ok {
+		x.xxx_hidden_Payload = nil
+	}
+}
+
+func (x *UploadFileResponse) ClearResult() {
+	if _, ok := x.xxx_hidden_Payload.(*uploadFileResponse_Result); ok {
+		x.xxx_hidden_Payload = nil
+	}
+}
+
+const UploadFileResponse_Payload_not_set_case case_UploadFileResponse_Payload = 0
+const UploadFileResponse_MetaAck_case case_UploadFileResponse_Payload = 1
+const UploadFileResponse_ChunkAck_case case_UploadFileResponse_Payload = 2
+const UploadFileResponse_Result_case case_UploadFileResponse_Payload = 3
+
+func (x *UploadFileResponse) WhichPayload() case_UploadFileResponse_Payload {
+	if x == nil {
+		return UploadFileResponse_Payload_not_set_case
+	}
+	switch x.xxx_hidden_Payload.(type) {
+	case *uploadFileResponse_MetaAck:
+		return UploadFileResponse_MetaAck_case
+	case *uploadFileResponse_ChunkAck:
+		return UploadFileResponse_ChunkAck_case
+	case *uploadFileResponse_Result:
+		return UploadFileResponse_Result_case
+	default:
+		return UploadFileResponse_Payload_not_set_case
+	}
+}
+
+type UploadFileResponse_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Fields of oneof xxx_hidden_Payload:
+	MetaAck  *MetaAck
+	ChunkAck *ChunkAck
+	Result   *TransferResult
+	// -- end of xxx_hidden_Payload
+}
+
+func (b0 UploadFileResponse_builder) Build() *UploadFileResponse {
+	m0 := &UploadFileResponse{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.MetaAck != nil {
+		x.xxx_hidden_Payload = &uploadFileResponse_MetaAck{b.MetaAck}
+	}
+	if b.ChunkAck != nil {
+		x.xxx_hidden_Payload = &uploadFileResponse_ChunkAck{b.ChunkAck}
+	}
+	if b.Result != nil {
+		x.xxx_hidden_Payload = &uploadFileResponse_Result{b.Result}
+	}
+	return m0
+}
+
+type case_UploadFileResponse_Payload protoreflect.FieldNumber
+
+func (x case_UploadFileResponse_Payload) String() string {
+	md := file_qmeta_transfer_v1_transfer_proto_msgTypes[5].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
 type isUploadFileResponse_Payload interface {
 	isUploadFileResponse_Payload()
 }
 
-type UploadFileResponse_MetaAck struct {
-	MetaAck *MetaAck `protobuf:"bytes,1,opt,name=meta_ack,json=metaAck,proto3,oneof"`
+type uploadFileResponse_MetaAck struct {
+	MetaAck *MetaAck `protobuf:"bytes,1,opt,name=meta_ack,json=metaAck,oneof"`
 }
 
-type UploadFileResponse_ChunkAck struct {
-	ChunkAck *ChunkAck `protobuf:"bytes,2,opt,name=chunk_ack,json=chunkAck,proto3,oneof"`
+type uploadFileResponse_ChunkAck struct {
+	ChunkAck *ChunkAck `protobuf:"bytes,2,opt,name=chunk_ack,json=chunkAck,oneof"`
 }
 
-type UploadFileResponse_Result struct {
-	Result *TransferResult `protobuf:"bytes,3,opt,name=result,proto3,oneof"`
+type uploadFileResponse_Result struct {
+	Result *TransferResult `protobuf:"bytes,3,opt,name=result,oneof"`
 }
 
-func (*UploadFileResponse_MetaAck) isUploadFileResponse_Payload() {}
+func (*uploadFileResponse_MetaAck) isUploadFileResponse_Payload() {}
 
-func (*UploadFileResponse_ChunkAck) isUploadFileResponse_Payload() {}
+func (*uploadFileResponse_ChunkAck) isUploadFileResponse_Payload() {}
 
-func (*UploadFileResponse_Result) isUploadFileResponse_Payload() {}
+func (*uploadFileResponse_Result) isUploadFileResponse_Payload() {}
 
 // MetaAck 元数据确认，服务器对文件元数据的响应
 type MetaAck struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AllowUpload   bool                   `protobuf:"varint,1,opt,name=allow_upload,json=allowUpload,proto3" json:"allow_upload,omitempty"`
-	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_AllowUpload bool                   `protobuf:"varint,1,opt,name=allow_upload,json=allowUpload"`
+	xxx_hidden_Message     *string                `protobuf:"bytes,2,opt,name=message"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *MetaAck) Reset() {
@@ -465,32 +940,88 @@ func (x *MetaAck) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use MetaAck.ProtoReflect.Descriptor instead.
-func (*MetaAck) Descriptor() ([]byte, []int) {
-	return file_qmeta_transfer_v1_transfer_proto_rawDescGZIP(), []int{6}
-}
-
 func (x *MetaAck) GetAllowUpload() bool {
 	if x != nil {
-		return x.AllowUpload
+		return x.xxx_hidden_AllowUpload
 	}
 	return false
 }
 
 func (x *MetaAck) GetMessage() string {
 	if x != nil {
-		return x.Message
+		if x.xxx_hidden_Message != nil {
+			return *x.xxx_hidden_Message
+		}
+		return ""
 	}
 	return ""
 }
 
+func (x *MetaAck) SetAllowUpload(v bool) {
+	x.xxx_hidden_AllowUpload = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *MetaAck) SetMessage(v string) {
+	x.xxx_hidden_Message = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *MetaAck) HasAllowUpload() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *MetaAck) HasMessage() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *MetaAck) ClearAllowUpload() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_AllowUpload = false
+}
+
+func (x *MetaAck) ClearMessage() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Message = nil
+}
+
+type MetaAck_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	AllowUpload *bool
+	Message     *string
+}
+
+func (b0 MetaAck_builder) Build() *MetaAck {
+	m0 := &MetaAck{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.AllowUpload != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_AllowUpload = *b.AllowUpload
+	}
+	if b.Message != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_Message = b.Message
+	}
+	return m0
+}
+
 // ChunkAck 块确认，服务器对文件块的响应
 type ChunkAck struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Chunk         int64                  `protobuf:"varint,1,opt,name=chunk,proto3" json:"chunk,omitempty"`
-	Received      bool                   `protobuf:"varint,2,opt,name=received,proto3" json:"received,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Chunk       int64                  `protobuf:"varint,1,opt,name=chunk"`
+	xxx_hidden_Received    bool                   `protobuf:"varint,2,opt,name=received"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *ChunkAck) Reset() {
@@ -518,32 +1049,85 @@ func (x *ChunkAck) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ChunkAck.ProtoReflect.Descriptor instead.
-func (*ChunkAck) Descriptor() ([]byte, []int) {
-	return file_qmeta_transfer_v1_transfer_proto_rawDescGZIP(), []int{7}
-}
-
 func (x *ChunkAck) GetChunk() int64 {
 	if x != nil {
-		return x.Chunk
+		return x.xxx_hidden_Chunk
 	}
 	return 0
 }
 
 func (x *ChunkAck) GetReceived() bool {
 	if x != nil {
-		return x.Received
+		return x.xxx_hidden_Received
 	}
 	return false
 }
 
+func (x *ChunkAck) SetChunk(v int64) {
+	x.xxx_hidden_Chunk = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *ChunkAck) SetReceived(v bool) {
+	x.xxx_hidden_Received = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *ChunkAck) HasChunk() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ChunkAck) HasReceived() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *ChunkAck) ClearChunk() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Chunk = 0
+}
+
+func (x *ChunkAck) ClearReceived() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Received = false
+}
+
+type ChunkAck_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	Chunk    *int64
+	Received *bool
+}
+
+func (b0 ChunkAck_builder) Build() *ChunkAck {
+	m0 := &ChunkAck{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Chunk != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_Chunk = *b.Chunk
+	}
+	if b.Received != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_Received = *b.Received
+	}
+	return m0
+}
+
 // TransferResult 传输结果，表示上传或下载的最终状态
 type TransferResult struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Status        bool                   `protobuf:"varint,1,opt,name=status,proto3" json:"status,omitempty"`
-	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Status      bool                   `protobuf:"varint,1,opt,name=status"`
+	xxx_hidden_Message     *string                `protobuf:"bytes,2,opt,name=message"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *TransferResult) Reset() {
@@ -571,33 +1155,89 @@ func (x *TransferResult) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use TransferResult.ProtoReflect.Descriptor instead.
-func (*TransferResult) Descriptor() ([]byte, []int) {
-	return file_qmeta_transfer_v1_transfer_proto_rawDescGZIP(), []int{8}
-}
-
 func (x *TransferResult) GetStatus() bool {
 	if x != nil {
-		return x.Status
+		return x.xxx_hidden_Status
 	}
 	return false
 }
 
 func (x *TransferResult) GetMessage() string {
 	if x != nil {
-		return x.Message
+		if x.xxx_hidden_Message != nil {
+			return *x.xxx_hidden_Message
+		}
+		return ""
 	}
 	return ""
 }
 
+func (x *TransferResult) SetStatus(v bool) {
+	x.xxx_hidden_Status = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *TransferResult) SetMessage(v string) {
+	x.xxx_hidden_Message = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *TransferResult) HasStatus() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *TransferResult) HasMessage() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *TransferResult) ClearStatus() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Status = false
+}
+
+func (x *TransferResult) ClearMessage() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Message = nil
+}
+
+type TransferResult_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	Status  *bool
+	Message *string
+}
+
+func (b0 TransferResult_builder) Build() *TransferResult {
+	m0 := &TransferResult{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Status != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_Status = *b.Status
+	}
+	if b.Message != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_Message = b.Message
+	}
+	return m0
+}
+
 // DownloadFileRequest 下载文件请求，包含文件标识和块大小
 type DownloadFileRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Tag           string                 `protobuf:"bytes,1,opt,name=tag,proto3" json:"tag,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Chunksize     int64                  `protobuf:"varint,3,opt,name=chunksize,proto3" json:"chunksize,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Tag         *string                `protobuf:"bytes,1,opt,name=tag"`
+	xxx_hidden_Name        *string                `protobuf:"bytes,2,opt,name=name"`
+	xxx_hidden_Chunksize   int64                  `protobuf:"varint,3,opt,name=chunksize"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *DownloadFileRequest) Reset() {
@@ -625,43 +1265,117 @@ func (x *DownloadFileRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use DownloadFileRequest.ProtoReflect.Descriptor instead.
-func (*DownloadFileRequest) Descriptor() ([]byte, []int) {
-	return file_qmeta_transfer_v1_transfer_proto_rawDescGZIP(), []int{9}
-}
-
 func (x *DownloadFileRequest) GetTag() string {
 	if x != nil {
-		return x.Tag
+		if x.xxx_hidden_Tag != nil {
+			return *x.xxx_hidden_Tag
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *DownloadFileRequest) GetName() string {
 	if x != nil {
-		return x.Name
+		if x.xxx_hidden_Name != nil {
+			return *x.xxx_hidden_Name
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *DownloadFileRequest) GetChunksize() int64 {
 	if x != nil {
-		return x.Chunksize
+		return x.xxx_hidden_Chunksize
 	}
 	return 0
 }
 
+func (x *DownloadFileRequest) SetTag(v string) {
+	x.xxx_hidden_Tag = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+}
+
+func (x *DownloadFileRequest) SetName(v string) {
+	x.xxx_hidden_Name = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+}
+
+func (x *DownloadFileRequest) SetChunksize(v int64) {
+	x.xxx_hidden_Chunksize = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
+}
+
+func (x *DownloadFileRequest) HasTag() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *DownloadFileRequest) HasName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *DownloadFileRequest) HasChunksize() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *DownloadFileRequest) ClearTag() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Tag = nil
+}
+
+func (x *DownloadFileRequest) ClearName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Name = nil
+}
+
+func (x *DownloadFileRequest) ClearChunksize() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_Chunksize = 0
+}
+
+type DownloadFileRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	Tag       *string
+	Name      *string
+	Chunksize *int64
+}
+
+func (b0 DownloadFileRequest_builder) Build() *DownloadFileRequest {
+	m0 := &DownloadFileRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Tag != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		x.xxx_hidden_Tag = b.Tag
+	}
+	if b.Name != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		x.xxx_hidden_Name = b.Name
+	}
+	if b.Chunksize != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		x.xxx_hidden_Chunksize = *b.Chunksize
+	}
+	return m0
+}
+
 // DownloadFileResponse 下载文件响应，包含文件元数据、块数据和传输结果
 type DownloadFileResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// Types that are valid to be assigned to Payload:
-	//
-	//	*DownloadFileResponse_Metadata
-	//	*DownloadFileResponse_Chunk
-	//	*DownloadFileResponse_Result
-	Payload       isDownloadFileResponse_Payload `protobuf_oneof:"payload"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state              protoimpl.MessageState         `protogen:"opaque.v1"`
+	xxx_hidden_Payload isDownloadFileResponse_Payload `protobuf_oneof:"payload"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *DownloadFileResponse) Reset() {
@@ -689,21 +1403,9 @@ func (x *DownloadFileResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use DownloadFileResponse.ProtoReflect.Descriptor instead.
-func (*DownloadFileResponse) Descriptor() ([]byte, []int) {
-	return file_qmeta_transfer_v1_transfer_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *DownloadFileResponse) GetPayload() isDownloadFileResponse_Payload {
-	if x != nil {
-		return x.Payload
-	}
-	return nil
-}
-
 func (x *DownloadFileResponse) GetMetadata() *FileMetadata {
 	if x != nil {
-		if x, ok := x.Payload.(*DownloadFileResponse_Metadata); ok {
+		if x, ok := x.xxx_hidden_Payload.(*downloadFileResponse_Metadata); ok {
 			return x.Metadata
 		}
 	}
@@ -712,7 +1414,7 @@ func (x *DownloadFileResponse) GetMetadata() *FileMetadata {
 
 func (x *DownloadFileResponse) GetChunk() *ChunkData {
 	if x != nil {
-		if x, ok := x.Payload.(*DownloadFileResponse_Chunk); ok {
+		if x, ok := x.xxx_hidden_Payload.(*downloadFileResponse_Chunk); ok {
 			return x.Chunk
 		}
 	}
@@ -721,44 +1423,180 @@ func (x *DownloadFileResponse) GetChunk() *ChunkData {
 
 func (x *DownloadFileResponse) GetResult() *TransferResult {
 	if x != nil {
-		if x, ok := x.Payload.(*DownloadFileResponse_Result); ok {
+		if x, ok := x.xxx_hidden_Payload.(*downloadFileResponse_Result); ok {
 			return x.Result
 		}
 	}
 	return nil
 }
 
+func (x *DownloadFileResponse) SetMetadata(v *FileMetadata) {
+	if v == nil {
+		x.xxx_hidden_Payload = nil
+		return
+	}
+	x.xxx_hidden_Payload = &downloadFileResponse_Metadata{v}
+}
+
+func (x *DownloadFileResponse) SetChunk(v *ChunkData) {
+	if v == nil {
+		x.xxx_hidden_Payload = nil
+		return
+	}
+	x.xxx_hidden_Payload = &downloadFileResponse_Chunk{v}
+}
+
+func (x *DownloadFileResponse) SetResult(v *TransferResult) {
+	if v == nil {
+		x.xxx_hidden_Payload = nil
+		return
+	}
+	x.xxx_hidden_Payload = &downloadFileResponse_Result{v}
+}
+
+func (x *DownloadFileResponse) HasPayload() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Payload != nil
+}
+
+func (x *DownloadFileResponse) HasMetadata() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Payload.(*downloadFileResponse_Metadata)
+	return ok
+}
+
+func (x *DownloadFileResponse) HasChunk() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Payload.(*downloadFileResponse_Chunk)
+	return ok
+}
+
+func (x *DownloadFileResponse) HasResult() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Payload.(*downloadFileResponse_Result)
+	return ok
+}
+
+func (x *DownloadFileResponse) ClearPayload() {
+	x.xxx_hidden_Payload = nil
+}
+
+func (x *DownloadFileResponse) ClearMetadata() {
+	if _, ok := x.xxx_hidden_Payload.(*downloadFileResponse_Metadata); ok {
+		x.xxx_hidden_Payload = nil
+	}
+}
+
+func (x *DownloadFileResponse) ClearChunk() {
+	if _, ok := x.xxx_hidden_Payload.(*downloadFileResponse_Chunk); ok {
+		x.xxx_hidden_Payload = nil
+	}
+}
+
+func (x *DownloadFileResponse) ClearResult() {
+	if _, ok := x.xxx_hidden_Payload.(*downloadFileResponse_Result); ok {
+		x.xxx_hidden_Payload = nil
+	}
+}
+
+const DownloadFileResponse_Payload_not_set_case case_DownloadFileResponse_Payload = 0
+const DownloadFileResponse_Metadata_case case_DownloadFileResponse_Payload = 1
+const DownloadFileResponse_Chunk_case case_DownloadFileResponse_Payload = 2
+const DownloadFileResponse_Result_case case_DownloadFileResponse_Payload = 3
+
+func (x *DownloadFileResponse) WhichPayload() case_DownloadFileResponse_Payload {
+	if x == nil {
+		return DownloadFileResponse_Payload_not_set_case
+	}
+	switch x.xxx_hidden_Payload.(type) {
+	case *downloadFileResponse_Metadata:
+		return DownloadFileResponse_Metadata_case
+	case *downloadFileResponse_Chunk:
+		return DownloadFileResponse_Chunk_case
+	case *downloadFileResponse_Result:
+		return DownloadFileResponse_Result_case
+	default:
+		return DownloadFileResponse_Payload_not_set_case
+	}
+}
+
+type DownloadFileResponse_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Fields of oneof xxx_hidden_Payload:
+	Metadata *FileMetadata
+	Chunk    *ChunkData
+	Result   *TransferResult
+	// -- end of xxx_hidden_Payload
+}
+
+func (b0 DownloadFileResponse_builder) Build() *DownloadFileResponse {
+	m0 := &DownloadFileResponse{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Metadata != nil {
+		x.xxx_hidden_Payload = &downloadFileResponse_Metadata{b.Metadata}
+	}
+	if b.Chunk != nil {
+		x.xxx_hidden_Payload = &downloadFileResponse_Chunk{b.Chunk}
+	}
+	if b.Result != nil {
+		x.xxx_hidden_Payload = &downloadFileResponse_Result{b.Result}
+	}
+	return m0
+}
+
+type case_DownloadFileResponse_Payload protoreflect.FieldNumber
+
+func (x case_DownloadFileResponse_Payload) String() string {
+	md := file_qmeta_transfer_v1_transfer_proto_msgTypes[10].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
 type isDownloadFileResponse_Payload interface {
 	isDownloadFileResponse_Payload()
 }
 
-type DownloadFileResponse_Metadata struct {
-	Metadata *FileMetadata `protobuf:"bytes,1,opt,name=metadata,proto3,oneof"`
+type downloadFileResponse_Metadata struct {
+	Metadata *FileMetadata `protobuf:"bytes,1,opt,name=metadata,oneof"`
 }
 
-type DownloadFileResponse_Chunk struct {
-	Chunk *ChunkData `protobuf:"bytes,2,opt,name=chunk,proto3,oneof"`
+type downloadFileResponse_Chunk struct {
+	Chunk *ChunkData `protobuf:"bytes,2,opt,name=chunk,oneof"`
 }
 
-type DownloadFileResponse_Result struct {
-	Result *TransferResult `protobuf:"bytes,3,opt,name=result,proto3,oneof"`
+type downloadFileResponse_Result struct {
+	Result *TransferResult `protobuf:"bytes,3,opt,name=result,oneof"`
 }
 
-func (*DownloadFileResponse_Metadata) isDownloadFileResponse_Payload() {}
+func (*downloadFileResponse_Metadata) isDownloadFileResponse_Payload() {}
 
-func (*DownloadFileResponse_Chunk) isDownloadFileResponse_Payload() {}
+func (*downloadFileResponse_Chunk) isDownloadFileResponse_Payload() {}
 
-func (*DownloadFileResponse_Result) isDownloadFileResponse_Payload() {}
+func (*downloadFileResponse_Result) isDownloadFileResponse_Payload() {}
 
 // ListFileItem 列出文件项，包含文件名、大小、哈希值和修改时间
 type ListFileItem struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Size          int64                  `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
-	Hash          string                 `protobuf:"bytes,3,opt,name=hash,proto3" json:"hash,omitempty"`
-	ModifiedTime  int64                  `protobuf:"varint,4,opt,name=modified_time,json=modifiedTime,proto3" json:"modified_time,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                   protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Name         *string                `protobuf:"bytes,1,opt,name=name"`
+	xxx_hidden_Size         int64                  `protobuf:"varint,2,opt,name=size"`
+	xxx_hidden_Hash         *string                `protobuf:"bytes,3,opt,name=hash"`
+	xxx_hidden_ModifiedTime int64                  `protobuf:"varint,4,opt,name=modified_time,json=modifiedTime"`
+	XXX_raceDetectHookData  protoimpl.RaceDetectHookData
+	XXX_presence            [1]uint32
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *ListFileItem) Reset() {
@@ -786,45 +1624,148 @@ func (x *ListFileItem) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ListFileItem.ProtoReflect.Descriptor instead.
-func (*ListFileItem) Descriptor() ([]byte, []int) {
-	return file_qmeta_transfer_v1_transfer_proto_rawDescGZIP(), []int{11}
-}
-
 func (x *ListFileItem) GetName() string {
 	if x != nil {
-		return x.Name
+		if x.xxx_hidden_Name != nil {
+			return *x.xxx_hidden_Name
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *ListFileItem) GetSize() int64 {
 	if x != nil {
-		return x.Size
+		return x.xxx_hidden_Size
 	}
 	return 0
 }
 
 func (x *ListFileItem) GetHash() string {
 	if x != nil {
-		return x.Hash
+		if x.xxx_hidden_Hash != nil {
+			return *x.xxx_hidden_Hash
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *ListFileItem) GetModifiedTime() int64 {
 	if x != nil {
-		return x.ModifiedTime
+		return x.xxx_hidden_ModifiedTime
 	}
 	return 0
 }
 
+func (x *ListFileItem) SetName(v string) {
+	x.xxx_hidden_Name = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
+}
+
+func (x *ListFileItem) SetSize(v int64) {
+	x.xxx_hidden_Size = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
+}
+
+func (x *ListFileItem) SetHash(v string) {
+	x.xxx_hidden_Hash = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
+}
+
+func (x *ListFileItem) SetModifiedTime(v int64) {
+	x.xxx_hidden_ModifiedTime = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
+}
+
+func (x *ListFileItem) HasName() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ListFileItem) HasSize() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *ListFileItem) HasHash() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *ListFileItem) HasModifiedTime() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
+func (x *ListFileItem) ClearName() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Name = nil
+}
+
+func (x *ListFileItem) ClearSize() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Size = 0
+}
+
+func (x *ListFileItem) ClearHash() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_Hash = nil
+}
+
+func (x *ListFileItem) ClearModifiedTime() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_ModifiedTime = 0
+}
+
+type ListFileItem_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	Name         *string
+	Size         *int64
+	Hash         *string
+	ModifiedTime *int64
+}
+
+func (b0 ListFileItem_builder) Build() *ListFileItem {
+	m0 := &ListFileItem{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Name != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
+		x.xxx_hidden_Name = b.Name
+	}
+	if b.Size != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
+		x.xxx_hidden_Size = *b.Size
+	}
+	if b.Hash != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
+		x.xxx_hidden_Hash = b.Hash
+	}
+	if b.ModifiedTime != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
+		x.xxx_hidden_ModifiedTime = *b.ModifiedTime
+	}
+	return m0
+}
+
 // ListFilesRequest 列出文件请求，包含文件标签
 type ListFilesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Tag           string                 `protobuf:"bytes,1,opt,name=tag,proto3" json:"tag,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Tag         *string                `protobuf:"bytes,1,opt,name=tag"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *ListFilesRequest) Reset() {
@@ -852,26 +1793,60 @@ func (x *ListFilesRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ListFilesRequest.ProtoReflect.Descriptor instead.
-func (*ListFilesRequest) Descriptor() ([]byte, []int) {
-	return file_qmeta_transfer_v1_transfer_proto_rawDescGZIP(), []int{12}
-}
-
 func (x *ListFilesRequest) GetTag() string {
 	if x != nil {
-		return x.Tag
+		if x.xxx_hidden_Tag != nil {
+			return *x.xxx_hidden_Tag
+		}
+		return ""
 	}
 	return ""
 }
 
+func (x *ListFilesRequest) SetTag(v string) {
+	x.xxx_hidden_Tag = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
+}
+
+func (x *ListFilesRequest) HasTag() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ListFilesRequest) ClearTag() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Tag = nil
+}
+
+type ListFilesRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	Tag *string
+}
+
+func (b0 ListFilesRequest_builder) Build() *ListFilesRequest {
+	m0 := &ListFilesRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Tag != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		x.xxx_hidden_Tag = b.Tag
+	}
+	return m0
+}
+
 // ListFilesResponse 列出文件响应，包含状态、消息和文件列表
 type ListFilesResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Status        bool                   `protobuf:"varint,1,opt,name=status,proto3" json:"status,omitempty"`
-	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	Files         []*ListFileItem        `protobuf:"bytes,3,rep,name=files,proto3" json:"files,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Status      bool                   `protobuf:"varint,1,opt,name=status"`
+	xxx_hidden_Message     *string                `protobuf:"bytes,2,opt,name=message"`
+	xxx_hidden_Files       *[]*ListFileItem       `protobuf:"bytes,3,rep,name=files"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *ListFilesResponse) Reset() {
@@ -899,30 +1874,92 @@ func (x *ListFilesResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ListFilesResponse.ProtoReflect.Descriptor instead.
-func (*ListFilesResponse) Descriptor() ([]byte, []int) {
-	return file_qmeta_transfer_v1_transfer_proto_rawDescGZIP(), []int{13}
-}
-
 func (x *ListFilesResponse) GetStatus() bool {
 	if x != nil {
-		return x.Status
+		return x.xxx_hidden_Status
 	}
 	return false
 }
 
 func (x *ListFilesResponse) GetMessage() string {
 	if x != nil {
-		return x.Message
+		if x.xxx_hidden_Message != nil {
+			return *x.xxx_hidden_Message
+		}
+		return ""
 	}
 	return ""
 }
 
 func (x *ListFilesResponse) GetFiles() []*ListFileItem {
 	if x != nil {
-		return x.Files
+		if x.xxx_hidden_Files != nil {
+			return *x.xxx_hidden_Files
+		}
 	}
 	return nil
+}
+
+func (x *ListFilesResponse) SetStatus(v bool) {
+	x.xxx_hidden_Status = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+}
+
+func (x *ListFilesResponse) SetMessage(v string) {
+	x.xxx_hidden_Message = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+}
+
+func (x *ListFilesResponse) SetFiles(v []*ListFileItem) {
+	x.xxx_hidden_Files = &v
+}
+
+func (x *ListFilesResponse) HasStatus() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ListFilesResponse) HasMessage() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *ListFilesResponse) ClearStatus() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Status = false
+}
+
+func (x *ListFilesResponse) ClearMessage() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Message = nil
+}
+
+type ListFilesResponse_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	Status  *bool
+	Message *string
+	Files   []*ListFileItem
+}
+
+func (b0 ListFilesResponse_builder) Build() *ListFilesResponse {
+	m0 := &ListFilesResponse{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Status != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		x.xxx_hidden_Status = *b.Status
+	}
+	if b.Message != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		x.xxx_hidden_Message = b.Message
+	}
+	x.xxx_hidden_Files = &b.Files
+	return m0
 }
 
 var File_qmeta_transfer_v1_transfer_proto protoreflect.FileDescriptor
@@ -988,19 +2025,7 @@ const file_qmeta_transfer_v1_transfer_proto_rawDesc = "" +
 	"\n" +
 	"UploadFile\x12$.qmeta.transfer.v1.UploadFileRequest\x1a%.qmeta.transfer.v1.UploadFileResponse\"\x00(\x010\x01\x12c\n" +
 	"\fDownloadFile\x12&.qmeta.transfer.v1.DownloadFileRequest\x1a'.qmeta.transfer.v1.DownloadFileResponse\"\x000\x01B\xb6\x01\n" +
-	"\x15com.qmeta.transfer.v1B\rTransferProtoP\x01Z(internal/pb/qmeta/transfer/v1;transferv1\xa2\x02\x03QTX\xaa\x02\x11Qmeta.Transfer.V1\xca\x02\x11Qmeta\\Transfer\\V1\xe2\x02\x1dQmeta\\Transfer\\V1\\GPBMetadata\xea\x02\x13Qmeta::Transfer::V1b\x06proto3"
-
-var (
-	file_qmeta_transfer_v1_transfer_proto_rawDescOnce sync.Once
-	file_qmeta_transfer_v1_transfer_proto_rawDescData []byte
-)
-
-func file_qmeta_transfer_v1_transfer_proto_rawDescGZIP() []byte {
-	file_qmeta_transfer_v1_transfer_proto_rawDescOnce.Do(func() {
-		file_qmeta_transfer_v1_transfer_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_qmeta_transfer_v1_transfer_proto_rawDesc), len(file_qmeta_transfer_v1_transfer_proto_rawDesc)))
-	})
-	return file_qmeta_transfer_v1_transfer_proto_rawDescData
-}
+	"\x15com.qmeta.transfer.v1B\rTransferProtoP\x01Z(internal/pb/qmeta/transfer/v1;transferv1\xa2\x02\x03QTX\xaa\x02\x11Qmeta.Transfer.V1\xca\x02\x11Qmeta\\Transfer\\V1\xe2\x02\x1dQmeta\\Transfer\\V1\\GPBMetadata\xea\x02\x13Qmeta::Transfer::V1b\beditionsp\xe9\a"
 
 var file_qmeta_transfer_v1_transfer_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_qmeta_transfer_v1_transfer_proto_goTypes = []any{
@@ -1050,18 +2075,18 @@ func file_qmeta_transfer_v1_transfer_proto_init() {
 		return
 	}
 	file_qmeta_transfer_v1_transfer_proto_msgTypes[4].OneofWrappers = []any{
-		(*UploadFileRequest_Metadata)(nil),
-		(*UploadFileRequest_Chunk)(nil),
+		(*uploadFileRequest_Metadata)(nil),
+		(*uploadFileRequest_Chunk)(nil),
 	}
 	file_qmeta_transfer_v1_transfer_proto_msgTypes[5].OneofWrappers = []any{
-		(*UploadFileResponse_MetaAck)(nil),
-		(*UploadFileResponse_ChunkAck)(nil),
-		(*UploadFileResponse_Result)(nil),
+		(*uploadFileResponse_MetaAck)(nil),
+		(*uploadFileResponse_ChunkAck)(nil),
+		(*uploadFileResponse_Result)(nil),
 	}
 	file_qmeta_transfer_v1_transfer_proto_msgTypes[10].OneofWrappers = []any{
-		(*DownloadFileResponse_Metadata)(nil),
-		(*DownloadFileResponse_Chunk)(nil),
-		(*DownloadFileResponse_Result)(nil),
+		(*downloadFileResponse_Metadata)(nil),
+		(*downloadFileResponse_Chunk)(nil),
+		(*downloadFileResponse_Result)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
