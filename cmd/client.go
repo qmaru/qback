@@ -80,7 +80,7 @@ func NewTransferSubCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			if reverse {
 				if localDir == "" {
-					log.Fatal("Error: --dir flag is required when using --reverse")
+					log.Fatal("Error: --src flag is required when using --reverse")
 				}
 			} else {
 				if localFile == "" {
@@ -118,7 +118,7 @@ func NewTransferSubCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&remoteTag, "tag", "t", "", "Remote tag")
 	cmd.Flags().StringVarP(&remoteName, "name", "n", "", "Remote file name")
 	cmd.Flags().StringVarP(&localFile, "file", "f", "", "Local file")
-	cmd.Flags().StringVarP(&localDir, "dir", "d", "", "Local directory")
+	cmd.Flags().StringVarP(&localDir, "src", "", "", "Local directory")
 	cmd.Flags().BoolVarP(&reverse, "reverse", "r", false, "Reverse transfer (server to client)")
 	cmd.MarkFlagRequired("tag")
 

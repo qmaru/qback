@@ -18,7 +18,7 @@ func NewServer() *cobra.Command {
 		Short: "Run Server",
 		Run: func(cmd *cobra.Command, args []string) {
 			if !memoryMode && savePath == "" {
-				log.Fatal("flag required: --dir (-d) is required when memory mode is disabled")
+				log.Fatal("flag required: --output (-o) is required when memory mode is disabled")
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
