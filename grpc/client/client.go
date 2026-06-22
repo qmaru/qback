@@ -28,6 +28,7 @@ import (
 
 	"qback/grpc/common"
 	transferv1 "qback/internal/pb/qmeta/transfer/v1"
+	"qback/utils"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -42,6 +43,20 @@ type ClientBasic struct {
 	Chunksize     int
 	ServerAddress string
 	Secure        bool
+	Debug         bool
+}
+
+func (c *ClientBasic) logDebug(format string, v ...any) {
+	if c.Debug {
+		utils.LogDebug(format, v...)
+	}
+}
+
+func (c *ClientBasic) shouldLogChunk(chunk, total int64) bool {
+	if total <= 10 {
+		return true
+	}
+	return chunk == 1 || chunk == total || chunk%100 == 0
 }
 
 func (c *ClientBasic) defaultTimeout() {
@@ -53,6 +68,7 @@ func (c *ClientBasic) defaultTimeout() {
 func (c *ClientBasic) connect() (transferv1.FileTransferServiceClient, error) {
 	log.Printf("Connecting on %s\n", c.ServerAddress)
 	c.defaultTimeout()
+	c.logDebug("connect config: address=%s secure=%t chunk_timeout=%ds chunksize=%d", c.ServerAddress, c.Secure, c.ChunkTimeout, c.Chunksize)
 
 	var cred credentials.TransportCredentials
 	var tlsConfig *tls.Config
@@ -83,25 +99,37 @@ func (c *ClientBasic) connect() (transferv1.FileTransferServiceClient, error) {
 		serverOpt,
 	}
 
+	c.logDebug("timeout=%ds", c.ChunkTimeout)
+	c.logDebug("call options: %+v", callOpt)
+	c.logDebug("dial options: %+v", serverOpt)
+
 	conn, err := grpc.NewClient(c.ServerAddress, opts...)
 	if err != nil {
+		c.logDebug("connect failed: %v", err)
 		return nil, err
 	}
 
 	if c.Secure {
 		go common.ProbeTLSConnection(c.ServerAddress, tlsConfig)
+		c.logDebug("started tls probe for %s", c.ServerAddress)
 	}
 
 	c.conn = conn
 	c.ctx, c.cancel = context.WithCancel(context.Background())
+	c.logDebug("grpc client connection ready")
 	client := transferv1.NewFileTransferServiceClient(c.conn)
 
 	return client, nil
 }
 
 func (c *ClientBasic) close() {
-	c.cancel()
-	c.conn.Close()
+	c.logDebug("closing client resources")
+	if c.cancel != nil {
+		c.cancel()
+	}
+	if c.conn != nil {
+		_ = c.conn.Close()
+	}
 }
 
 func (c *ClientBasic) ServerCheck() error {
@@ -116,10 +144,13 @@ func (c *ClientBasic) ServerCheck() error {
 
 	checkReq := &transferv1.ServerCheckRequest{}
 	checkReq.SetStatus(true)
+	c.logDebug("sending server check request")
 	_, err = client.ServerCheck(checkCtx, checkReq)
 	if err != nil {
+		c.logDebug("server check failed: %v", err)
 		return err
 	}
+	c.logDebug("server check succeeded")
 	return nil
 }
 
@@ -152,6 +183,7 @@ func (c *ClientBasic) UploadFile(fileTag, filePath string) (string, error) {
 			return "", fmt.Errorf("failed to calc virtual hash: %w", err)
 		}
 		log.Printf("[Upload] Benchmark file: name=%s, size=%d\n", fileName, fileSize)
+		c.logDebug("upload source resolved: benchmark path=%s generated_name=%s", filePath, fileName)
 	} else {
 		fileInfo, err := os.Stat(filePath)
 		if err != nil {
@@ -165,17 +197,21 @@ func (c *ClientBasic) UploadFile(fileTag, filePath string) (string, error) {
 		}
 
 		log.Printf("[Upload] Real file: name=%s, size=%d\n", fileName, fileSize)
+		c.logDebug("upload source resolved: path=%s name=%s size=%d", filePath, fileName, fileSize)
 	}
 
 	fileChunks := int64(math.Ceil(float64(fileSize) / float64(c.Chunksize)))
+	c.logDebug("upload metadata prepared: tag=%s name=%s chunks=%d hash=%s", fileTag, fileName, fileChunks, fileHash)
 
 	log.Printf("[Upload] Metadata tag=%s, name=%s, size=%d, chunks=%d x %d Byte, hash=%s\n",
 		fileTag, fileName, fileSize, fileChunks, c.Chunksize, fileHash)
 
 	stream, err := client.UploadFile(c.ctx)
 	if err != nil {
+		c.logDebug("failed to create upload stream: %v", err)
 		return "", err
 	}
+	c.logDebug("upload stream created")
 
 	// 1. send metadata
 	fileMetadata := &transferv1.FileMetadata{}
@@ -189,14 +225,17 @@ func (c *ClientBasic) UploadFile(fileTag, filePath string) (string, error) {
 	uploadReq := &transferv1.UploadFileRequest{}
 	uploadReq.SetMetadata(fileMetadata)
 
+	c.logDebug("sending upload metadata to server")
 	if err := stream.Send(uploadReq); err != nil {
 		stream.CloseSend()
+		c.logDebug("send metadata failed: %v", err)
 		return "", fmt.Errorf("failed to send metadata: %w", err)
 	}
 
 	ack, err := stream.Recv()
 	if err != nil {
 		stream.CloseSend()
+		c.logDebug("receive metadata ack failed: %v", err)
 		return "", fmt.Errorf("failed to receive ack: %w", err)
 	}
 
@@ -210,11 +249,13 @@ func (c *ClientBasic) UploadFile(fileTag, filePath string) (string, error) {
 			message = result.GetMessage()
 		}
 		stream.CloseSend()
+		c.logDebug("server rejected upload: %s", message)
 		return message, nil
 	}
 
 	log.Printf("[Upload] Server ack: %s\n", metaAck.GetMessage())
 	log.Printf("[Upload] Server allowed, starting transfer\n")
+	c.logDebug("server ack details: allow=%t message=%s", metaAck.GetAllowUpload(), metaAck.GetMessage())
 
 	startTime := time.Now()
 	buffer := make([]byte, c.Chunksize)
@@ -228,6 +269,9 @@ func (c *ClientBasic) UploadFile(fileTag, filePath string) (string, error) {
 			chunkSize := int64(c.Chunksize)
 			if remainingSize < chunkSize {
 				chunkSize = remainingSize
+			}
+			if c.shouldLogChunk(chunk, fileChunks) {
+				c.logDebug("sending benchmark chunk=%d/%d bytes=%d", chunk, fileChunks, chunkSize)
 			}
 
 			sendErr := make(chan error, 1)
@@ -244,11 +288,13 @@ func (c *ClientBasic) UploadFile(fileTag, filePath string) (string, error) {
 			case <-chunkCtx.Done():
 				chunkCancel()
 				stream.CloseSend()
+				c.logDebug("benchmark chunk timeout: chunk=%d/%d timeout=%ds", chunk, fileChunks, c.ChunkTimeout)
 				return "", fmt.Errorf("chunk %d/%d send timeout after %ds", chunk, fileChunks, c.ChunkTimeout)
 			case err := <-sendErr:
 				chunkCancel()
 				if err != nil {
 					stream.CloseSend()
+					c.logDebug("benchmark chunk send failed: chunk=%d/%d err=%v", chunk, fileChunks, err)
 					return "", fmt.Errorf("failed to send chunk %d/%d: %w", chunk, fileChunks, err)
 				}
 				totalSent += chunkSize
@@ -288,7 +334,11 @@ func (c *ClientBasic) UploadFile(fileTag, filePath string) (string, error) {
 			if err != nil {
 				chunkCancel()
 				stream.CloseSend()
+				c.logDebug("read file chunk failed: chunk=%d err=%v", chunk, err)
 				return "", fmt.Errorf("failed to read file at chunk %d: %w", chunk, err)
+			}
+			if c.shouldLogChunk(chunk, fileChunks) {
+				c.logDebug("sending file chunk=%d/%d offset=%d bytes=%d", chunk, fileChunks, fileChunkOffset, n)
 			}
 
 			sendErr := make(chan error, 1)
@@ -307,11 +357,13 @@ func (c *ClientBasic) UploadFile(fileTag, filePath string) (string, error) {
 			case <-chunkCtx.Done():
 				chunkCancel()
 				stream.CloseSend()
+				c.logDebug("file chunk timeout: chunk=%d/%d timeout=%ds", chunk, fileChunks, c.ChunkTimeout)
 				return "", fmt.Errorf("chunk %d/%d send timeout after %ds", chunk, fileChunks, c.ChunkTimeout)
 			case err := <-sendErr:
 				chunkCancel()
 				if err != nil {
 					stream.CloseSend()
+					c.logDebug("file chunk send failed: chunk=%d/%d err=%v", chunk, fileChunks, err)
 					return "", fmt.Errorf("failed to send chunk %d/%d: %w", chunk, fileChunks, err)
 				}
 				totalSent += int64(n)
@@ -323,11 +375,14 @@ func (c *ClientBasic) UploadFile(fileTag, filePath string) (string, error) {
 	}
 
 	if err := stream.CloseSend(); err != nil {
+		c.logDebug("close upload stream failed: %v", err)
 		return "", fmt.Errorf("failed to close send: %w", err)
 	}
+	c.logDebug("upload stream closed, waiting for final response")
 
 	resp, err := stream.Recv()
 	if err != nil {
+		c.logDebug("receive upload final response failed: %v", err)
 		return "", fmt.Errorf("failed to receive final response: %w", err)
 	}
 
@@ -337,6 +392,7 @@ func (c *ClientBasic) UploadFile(fileTag, filePath string) (string, error) {
 	}
 
 	if !result.GetStatus() {
+		c.logDebug("upload finished with server failure: %s", result.GetMessage())
 		return "", fmt.Errorf("upload failed: %s", result.GetMessage())
 	}
 
@@ -346,6 +402,7 @@ func (c *ClientBasic) UploadFile(fileTag, filePath string) (string, error) {
 
 	log.Printf("[Upload] Complete: %s, elapsed=%d, speed=%s (sent: %d bytes)\n", fileName, elapsed.Milliseconds(), speedStr, totalSent)
 	log.Printf("[Upload] Success: %s\n", result.GetMessage())
+	c.logDebug("upload completed successfully: file=%s elapsed_ms=%d sent=%d", fileName, elapsed.Milliseconds(), totalSent)
 	return result.GetMessage(), nil
 }
 
@@ -356,6 +413,7 @@ func (c *ClientBasic) DownloadFile(fileTag, fileName, savePath string) (string, 
 		return "", fmt.Errorf("check file exist failed: %w", err)
 	} else if ok {
 		log.Printf("[Download] File already exists: %s\n", fileName)
+		c.logDebug("download skipped because target exists: tag=%s name=%s save_path=%s", fileTag, fileName, savePath)
 		return "", fmt.Errorf("file already exists: %s", fileName)
 	}
 
@@ -366,6 +424,7 @@ func (c *ClientBasic) DownloadFile(fileTag, fileName, savePath string) (string, 
 	defer c.close()
 
 	log.Printf("[Download] Request: tag=%s, name=%s, chunksize=%d\n", fileTag, fileName, c.Chunksize)
+	c.logDebug("download request prepared: tag=%s name=%s save_path=%s", fileTag, fileName, savePath)
 
 	downloadReq := &transferv1.DownloadFileRequest{}
 	downloadReq.SetTag(fileTag)
@@ -374,12 +433,15 @@ func (c *ClientBasic) DownloadFile(fileTag, fileName, savePath string) (string, 
 
 	stream, err := client.DownloadFile(c.ctx, downloadReq)
 	if err != nil {
+		c.logDebug("failed to create download stream: %v", err)
 		return "", fmt.Errorf("failed to create download stream: %w", err)
 	}
+	c.logDebug("download stream created")
 
 	// 1. 接收元数据
 	resp, err := stream.Recv()
 	if err != nil {
+		c.logDebug("failed to receive download metadata: %v", err)
 		return "", fmt.Errorf("failed to receive metadata: %w", err)
 	}
 
@@ -402,11 +464,13 @@ func (c *ClientBasic) DownloadFile(fileTag, fileName, savePath string) (string, 
 
 	log.Printf("[Download] Metadata: size=%d, chunks=%d x %d Byte, hash=%s\n",
 		fileSize, fileChunks, metadata.GetChunksize(), fileHash)
+	c.logDebug("download metadata received: chunks=%d chunksize=%d hash=%s", fileChunks, metadata.GetChunksize(), fileHash)
 
 	dstFilePath, err := common.SetTargetFilePath(savePath, fileTag, fileName)
 	if err != nil {
 		return "", fmt.Errorf("create target file path failed: %w", err)
 	}
+	c.logDebug("download target path resolved: %s", dstFilePath)
 
 	recFile, err := common.OpenTargetFile(dstFilePath, common.FileWrite)
 	if err != nil {
@@ -451,10 +515,12 @@ func (c *ClientBasic) DownloadFile(fileTag, fileName, savePath string) (string, 
 				_ = recFile.Close()
 			}
 			_ = os.Remove(recFilePath)
+			c.logDebug("download chunk receive timeout after %ds, removed partial file=%s", c.ChunkTimeout, recFilePath)
 			return "", fmt.Errorf("chunk receive timeout after %ds", c.ChunkTimeout)
 		case err = <-errChan:
 			chunkCancel()
 			if err == io.EOF {
+				c.logDebug("download stream reached EOF")
 				break
 			}
 			if bufWriter != nil {
@@ -464,6 +530,7 @@ func (c *ClientBasic) DownloadFile(fileTag, fileName, savePath string) (string, 
 				_ = recFile.Close()
 			}
 			_ = os.Remove(recFilePath)
+			c.logDebug("failed to receive download chunk: %v, removed partial file=%s", err, recFilePath)
 			return "", fmt.Errorf("failed to receive chunk: %w", err)
 		case resp = <-respChan:
 			chunkCancel()
@@ -483,9 +550,11 @@ func (c *ClientBasic) DownloadFile(fileTag, fileName, savePath string) (string, 
 					_ = recFile.Close()
 				}
 				os.Remove(recFilePath)
+				c.logDebug("download failed by server result: %s, removed partial file=%s", result.GetMessage(), recFilePath)
 				return "", fmt.Errorf("download failed: %s", result.GetMessage())
 			}
 			log.Printf("[Download] Server confirmed: %s\n", result.GetMessage())
+			c.logDebug("download server result received: %s", result.GetMessage())
 			break
 		}
 
@@ -497,6 +566,9 @@ func (c *ClientBasic) DownloadFile(fileTag, fileName, savePath string) (string, 
 		data := chunk.GetData()
 		if len(data) == 0 {
 			continue
+		}
+		if c.shouldLogChunk(chunk.GetChunk(), fileChunks) {
+			c.logDebug("received file chunk=%d/%d bytes=%d", chunk.GetChunk(), fileChunks, len(data))
 		}
 
 		totalReceived += int64(len(data))
@@ -510,6 +582,7 @@ func (c *ClientBasic) DownloadFile(fileTag, fileName, savePath string) (string, 
 				_ = recFile.Close()
 			}
 			os.Remove(recFilePath)
+			c.logDebug("failed to write download chunk=%d: %v, removed partial file=%s", chunk.GetChunk(), err, recFilePath)
 			return "", fmt.Errorf("failed to write chunk: %w", err)
 		}
 
@@ -522,6 +595,7 @@ func (c *ClientBasic) DownloadFile(fileTag, fileName, savePath string) (string, 
 			_ = recFile.Close()
 		}
 		_ = os.Remove(recFilePath)
+		c.logDebug("flush download file failed: %v, removed partial file=%s", err, recFilePath)
 		return "", fmt.Errorf("failed to flush: %w", err)
 	}
 
@@ -530,6 +604,7 @@ func (c *ClientBasic) DownloadFile(fileTag, fileName, savePath string) (string, 
 			_ = recFile.Close()
 		}
 		_ = os.Remove(recFilePath)
+		c.logDebug("sync download file failed: %v, removed partial file=%s", err, recFilePath)
 		return "", fmt.Errorf("failed to sync: %w", err)
 	}
 
@@ -542,6 +617,7 @@ func (c *ClientBasic) DownloadFile(fileTag, fileName, savePath string) (string, 
 			_ = recFile.Close()
 		}
 		_ = os.Remove(recFilePath)
+		c.logDebug("download validation failed: %v, removed partial file=%s", err, recFilePath)
 		return "", fmt.Errorf("validation error: %w", err)
 	}
 
@@ -551,6 +627,7 @@ func (c *ClientBasic) DownloadFile(fileTag, fileName, savePath string) (string, 
 
 	log.Printf("[Download] Complete: %s, elapsed: %d, received=%d bytes, speed=%s\n", fileName, elapsed.Milliseconds(), totalReceived, speedStr)
 	log.Printf("[Download] Saved to: %s\n", recFilePath)
+	c.logDebug("download completed successfully: file=%s elapsed_ms=%d received=%d", fileName, elapsed.Milliseconds(), totalReceived)
 
 	return recFilePath, nil
 }
@@ -567,16 +644,20 @@ func (c *ClientBasic) ListFiles(fileTag string) ([]*transferv1.ListFileItem, err
 
 	listReq := &transferv1.ListFilesRequest{}
 	listReq.SetTag(fileTag)
+	c.logDebug("listing files for tag=%s", fileTag)
 	response, err := client.ListFiles(checkCtx, listReq)
 	if err != nil {
+		c.logDebug("list files request failed: %v", err)
 		return nil, err
 	}
 
 	if response.GetStatus() {
+		c.logDebug("list files succeeded: count=%d", len(response.GetFiles()))
 		return response.GetFiles(), nil
 
 	}
 
+	c.logDebug("list files rejected: %s", response.GetMessage())
 	return nil, fmt.Errorf("%s", response.GetMessage())
 }
 
@@ -597,5 +678,6 @@ func (c *ClientBasic) calcVirtualHash(fileSize int64) (string, error) {
 		}
 	}
 
+	c.logDebug("virtual hash input generated: size=%d buffer=%d", fileSize, c.Chunksize)
 	return common.CalcBlake3FromBytes(data)
 }

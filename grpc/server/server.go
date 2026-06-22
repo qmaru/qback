@@ -37,12 +37,27 @@ type ServerBasic struct {
 	SavePath      string
 	Secure        bool
 	MemoryMode    bool
+	Debug         bool
 }
 
 type FileService struct {
 	savePath   string
 	memoryMode bool
+	debug      bool
 	transferv1.UnimplementedFileTransferServiceServer
+}
+
+func (s *FileService) logDebug(format string, v ...any) {
+	if s.debug {
+		utils.LogDebug(format, v...)
+	}
+}
+
+func (s *FileService) shouldLogChunk(chunk, total int64) bool {
+	if total <= 10 {
+		return true
+	}
+	return chunk == 1 || chunk == total || chunk%100 == 0
 }
 
 // unaryLoggerMid
@@ -94,9 +109,15 @@ func streamLogInterceptor(srv any, ss grpc.ServerStream, info *grpc.StreamServer
 
 func (s *ServerBasic) Run(ctx context.Context) error {
 	log.Printf("Listen on %s\n", s.ListenAddress)
+	if s.Debug {
+		utils.LogDebug("server config: address=%s secure=%t memory_mode=%t save_path=%s", s.ListenAddress, s.Secure, s.MemoryMode, s.SavePath)
+	}
 
 	listener, err := net.Listen("tcp", s.ListenAddress)
 	if err != nil {
+		if s.Debug {
+			utils.LogDebug("listen failed: %v", err)
+		}
 		return err
 	}
 
@@ -116,17 +137,26 @@ func (s *ServerBasic) Run(ctx context.Context) error {
 		log.Println("TLS ON")
 		tlsConfig, err := common.GenTLSInfo("server", true)
 		if err != nil {
+			if s.Debug {
+				utils.LogDebug("load tls config failed: %v", err)
+			}
 			return err
 		}
 		creds := credentials.NewTLS(tlsConfig)
 		opts = append(opts, grpc.Creds(creds))
+		if s.Debug {
+			utils.LogDebug("tls credentials attached")
+		}
 	}
 	server := grpc.NewServer(opts...)
-	transferv1.RegisterFileTransferServiceServer(server, &FileService{savePath: s.SavePath, memoryMode: s.MemoryMode})
+	transferv1.RegisterFileTransferServiceServer(server, &FileService{savePath: s.SavePath, memoryMode: s.MemoryMode, debug: s.Debug})
 
 	go func() {
 		<-ctx.Done()
 		log.Println("Shutting down server...")
+		if s.Debug {
+			utils.LogDebug("graceful stop requested")
+		}
 		server.GracefulStop()
 	}()
 
@@ -134,11 +164,15 @@ func (s *ServerBasic) Run(ctx context.Context) error {
 	if s.MemoryMode {
 		log.Println("Memory Mode: ON")
 	}
+	if s.Debug {
+		utils.LogDebug("grpc server ready with %d options", len(opts))
+	}
 
 	return server.Serve(listener)
 }
 
 func (s *FileService) sendUploadError(stream transferv1.FileTransferService_UploadFileServer, message string) error {
+	s.logDebug("sending upload error response: %s", message)
 	result := &transferv1.TransferResult{}
 	result.SetStatus(false)
 	result.SetMessage(message)
@@ -150,6 +184,7 @@ func (s *FileService) sendUploadError(stream transferv1.FileTransferService_Uplo
 }
 
 func (s *FileService) sendUploadSuccess(stream transferv1.FileTransferService_UploadFileServer, message string) error {
+	s.logDebug("sending upload success response: %s", message)
 	result := &transferv1.TransferResult{}
 	result.SetStatus(true)
 	result.SetMessage(message)
@@ -161,6 +196,7 @@ func (s *FileService) sendUploadSuccess(stream transferv1.FileTransferService_Up
 }
 
 func (s *FileService) sendDownloadError(stream transferv1.FileTransferService_DownloadFileServer, message string) error {
+	s.logDebug("sending download error response: %s", message)
 	result := &transferv1.TransferResult{}
 	result.SetStatus(false)
 	result.SetMessage(message)
@@ -172,6 +208,7 @@ func (s *FileService) sendDownloadError(stream transferv1.FileTransferService_Do
 }
 
 func (s *FileService) sendDownloadSuccess(stream transferv1.FileTransferService_DownloadFileServer, message string) error {
+	s.logDebug("sending download success response: %s", message)
 	result := &transferv1.TransferResult{}
 	result.SetStatus(true)
 	result.SetMessage(message)
@@ -184,6 +221,7 @@ func (s *FileService) sendDownloadSuccess(stream transferv1.FileTransferService_
 
 func (s *FileService) ServerCheck(ctx context.Context, in *transferv1.ServerCheckRequest) (*transferv1.ServerCheckResponse, error) {
 	log.Printf("[Ping] Received")
+	s.logDebug("server check payload: status=%t", in.GetStatus())
 
 	checkRes := &transferv1.ServerCheckResponse{}
 
@@ -192,17 +230,20 @@ func (s *FileService) ServerCheck(ctx context.Context, in *transferv1.ServerChec
 	} else {
 		checkRes.SetStatus(false)
 	}
+	s.logDebug("server check response: status=%t", checkRes.GetStatus())
 	return checkRes, nil
 }
 
 func (s *FileService) UploadFile(stream transferv1.FileTransferService_UploadFileServer) error {
 	req, err := stream.Recv()
 	if err != nil {
+		s.logDebug("failed to receive upload metadata request: %v", err)
 		return err
 	}
 
 	metadata := req.GetMetadata()
 	if metadata == nil {
+		s.logDebug("upload request missing metadata")
 		return s.sendUploadError(stream, "Missing metadata")
 	}
 
@@ -215,14 +256,17 @@ func (s *FileService) UploadFile(stream transferv1.FileTransferService_UploadFil
 
 	log.Printf("[Upload] Metadata: tag=%s, name=%s, size=%d, chunks=%d x %d Byte, hash=%s\n",
 		fileTag, fileName, fileSize, fileChunks, fileChunksize, fileHash)
+	s.logDebug("upload metadata received: tag=%s name=%s size=%d chunks=%d hash=%s", fileTag, fileName, fileSize, fileChunks, fileHash)
 
 	if !s.memoryMode {
 		ok, err := common.FileIsExist(s.savePath, fileTag, fileName, fileHash)
 		if err != nil {
 			log.Printf("[Upload] File error: %s \n", err.Error())
+			s.logDebug("upload pre-check failed: tag=%s name=%s err=%v", fileTag, fileName, err)
 			return s.sendUploadError(stream, "File not found")
 		}
 		if ok {
+			s.logDebug("upload rejected because file exists: tag=%s name=%s", fileTag, fileName)
 			return s.sendUploadError(stream, "File already exists")
 		}
 	}
@@ -234,7 +278,9 @@ func (s *FileService) UploadFile(stream transferv1.FileTransferService_UploadFil
 	uploadRes := &transferv1.UploadFileResponse{}
 	uploadRes.SetMetaAck(metaAck)
 
+	s.logDebug("sending upload ack: allow=%t message=%s", metaAck.GetAllowUpload(), metaAck.GetMessage())
 	if err := stream.Send(uploadRes); err != nil {
+		s.logDebug("failed to send upload ack: %v", err)
 		return err
 	}
 
@@ -247,16 +293,20 @@ func (s *FileService) UploadFile(stream transferv1.FileTransferService_UploadFil
 
 	if s.memoryMode {
 		memBuf = make([]byte, 0, fileSize)
+		s.logDebug("upload memory buffer allocated: cap=%d", fileSize)
 	} else {
 		dstFilePath, err := common.SetTargetFilePath(s.savePath, fileTag, fileName)
 		if err != nil {
 			log.Printf("[Upload] Create file path error: %s \n", err.Error())
+			s.logDebug("failed to resolve upload target path: %v", err)
 			return s.sendUploadError(stream, "File upload path unavailable")
 		}
+		s.logDebug("upload target path resolved: %s", dstFilePath)
 
 		recFile, err = common.OpenTargetFile(dstFilePath, common.FileWrite)
 		if err != nil {
 			log.Printf("[Upload] Create file error: %s \n", err.Error())
+			s.logDebug("failed to open upload target file: %v", err)
 			return s.sendUploadError(stream, "Failed to access destination file")
 		}
 		defer recFile.Close()
@@ -271,6 +321,7 @@ func (s *FileService) UploadFile(stream transferv1.FileTransferService_UploadFil
 
 		if err == io.EOF {
 			log.Println("[Upload] Reached EOF, processing final validation")
+			s.logDebug("upload stream reached EOF")
 			break
 		}
 
@@ -279,6 +330,7 @@ func (s *FileService) UploadFile(stream transferv1.FileTransferService_UploadFil
 			if !s.memoryMode {
 				os.Remove(recFilePath)
 			}
+			s.logDebug("upload receive failed: %v, cleaned file=%s", err, recFilePath)
 			return s.sendUploadError(stream, "Receive error: file transfer incomplete")
 		}
 
@@ -291,6 +343,9 @@ func (s *FileService) UploadFile(stream transferv1.FileTransferService_UploadFil
 		if len(fileData) == 0 {
 			continue
 		}
+		if s.shouldLogChunk(chunk.GetChunk(), fileChunks) {
+			s.logDebug("received upload chunk=%d/%d bytes=%d", chunk.GetChunk(), fileChunks, len(fileData))
+		}
 
 		totalReceived += int64(len(fileData))
 
@@ -300,6 +355,7 @@ func (s *FileService) UploadFile(stream transferv1.FileTransferService_UploadFil
 			if _, err := bufWriter.Write(fileData); err != nil {
 				log.Printf("[Upload] Write error: %v\n", err)
 				os.Remove(recFilePath)
+				s.logDebug("write upload chunk failed: chunk=%d err=%v cleaned file=%s", chunk.GetChunk(), err, recFilePath)
 				return s.sendUploadError(stream, "Receive error: write file error")
 			}
 		}
@@ -313,11 +369,13 @@ func (s *FileService) UploadFile(stream transferv1.FileTransferService_UploadFil
 		if err := bufWriter.Flush(); err != nil {
 			os.Remove(recFilePath)
 			log.Printf("[Upload] Flush error: %v\n", err)
+			s.logDebug("flush upload file failed: %v cleaned file=%s", err, recFilePath)
 			return s.sendUploadError(stream, "Receive error: save file")
 		}
 		if err := recFile.Sync(); err != nil {
 			os.Remove(recFilePath)
 			log.Printf("[Upload] Sync error: %v\n", err)
+			s.logDebug("sync upload file failed: %v cleaned file=%s", err, recFilePath)
 			return s.sendUploadError(stream, "Receive error: sync file")
 		}
 	}
@@ -333,6 +391,7 @@ func (s *FileService) UploadFile(stream transferv1.FileTransferService_UploadFil
 			os.Remove(recFilePath)
 		}
 		log.Printf("[Upload] Validation error: %v\n", err)
+		s.logDebug("upload validation failed: %v cleaned file=%s", err, recFilePath)
 		return s.sendUploadError(stream, fmt.Sprintf("Receive error: %v", err))
 	}
 
@@ -345,6 +404,7 @@ func (s *FileService) UploadFile(stream transferv1.FileTransferService_UploadFil
 	} else {
 		log.Printf("[Upload] Success: %s, elapsed=%d, received=%d bytes, speed=%s\n", fileName, elapsed.Milliseconds(), totalReceived, speedStr)
 	}
+	s.logDebug("upload completed successfully: name=%s elapsed_ms=%d received=%d memory_mode=%t", fileName, elapsed.Milliseconds(), totalReceived, s.memoryMode)
 
 	return s.sendUploadSuccess(stream, "Receive complete")
 }
@@ -355,27 +415,33 @@ func (s *FileService) DownloadFile(in *transferv1.DownloadFileRequest, stream tr
 	fileChunksize := in.GetChunksize()
 
 	log.Printf("[Download] Request: tag=%s, name=%s, chunksize=%d\n", fileTag, fileName, fileChunksize)
+	s.logDebug("download request received: tag=%s name=%s chunksize=%d", fileTag, fileName, fileChunksize)
 
 	if s.memoryMode {
+		s.logDebug("download rejected because memory mode is enabled")
 		return s.sendDownloadError(stream, "download not supported in Memory Mode")
 	}
 
 	ok, err := common.FileIsExist(s.savePath, fileTag, fileName, "")
 	if err != nil {
 		log.Printf("[Download] File error: %s \n", err.Error())
+		s.logDebug("download pre-check failed: %v", err)
 		return s.sendDownloadError(stream, "file not found")
 	}
 
 	if !ok {
 		log.Printf("[Download] File %s/%s does not exist\n", fileTag, fileName)
+		s.logDebug("download rejected because source file is missing: tag=%s name=%s", fileTag, fileName)
 		return s.sendDownloadError(stream, "file does not exist")
 	}
 
 	srcFilePath := utils.FileSuite.JoinPath(s.savePath, fileTag, fileName)
+	s.logDebug("download source path resolved: %s", srcFilePath)
 
 	srcFileInfo, err := os.Stat(srcFilePath)
 	if err != nil {
 		log.Printf("[Download] Stat error: %s \n", err.Error())
+		s.logDebug("download stat failed: %v", err)
 		return s.sendDownloadError(stream, "file access error")
 	}
 
@@ -383,13 +449,16 @@ func (s *FileService) DownloadFile(in *transferv1.DownloadFileRequest, stream tr
 	chunkSize64 := fileChunksize
 	if chunkSize64 <= 0 {
 		log.Printf("[Download] Invalid chunksize: %d\n", chunkSize64)
+		s.logDebug("invalid download chunksize: %d", chunkSize64)
 		return s.sendDownloadError(stream, "invalid chunksize")
 	}
 	totalChunks := (srcFileSize + chunkSize64 - 1) / chunkSize64
+	s.logDebug("download source metadata: size=%d total_chunks=%d", srcFileSize, totalChunks)
 
 	srcFileHash, err := common.CalcBlake3(srcFilePath)
 	if err != nil {
 		log.Printf("[Download] Hash calculation error: %s \n", err.Error())
+		s.logDebug("download hash calculation failed: %v", err)
 		return s.sendDownloadError(stream, "hash calculation error")
 	}
 
@@ -407,6 +476,7 @@ func (s *FileService) DownloadFile(in *transferv1.DownloadFileRequest, stream tr
 
 	if err := stream.Send(downloadRes); err != nil {
 		log.Printf("[Download] Send metadata error: %s \n", err.Error())
+		s.logDebug("failed to send download metadata: %v", err)
 		return fmt.Errorf("failed to send metadata")
 	}
 
@@ -416,6 +486,7 @@ func (s *FileService) DownloadFile(in *transferv1.DownloadFileRequest, stream tr
 	file, err := common.OpenTargetFile(srcFilePath, common.FileRead)
 	if err != nil {
 		log.Printf("[Download] Open error: %s \n", err.Error())
+		s.logDebug("failed to open download source file: %v", err)
 		return s.sendDownloadError(stream, "file open error")
 	}
 	defer file.Close()
@@ -434,6 +505,7 @@ func (s *FileService) DownloadFile(in *transferv1.DownloadFileRequest, stream tr
 		n, err := bufReader.Read(buffer)
 		if err != nil && err != io.EOF {
 			log.Printf("[Download] Read error: %s \n", err.Error())
+			s.logDebug("read download source failed: %v", err)
 			return s.sendDownloadError(stream, "file read error")
 		}
 
@@ -450,9 +522,13 @@ func (s *FileService) DownloadFile(in *transferv1.DownloadFileRequest, stream tr
 
 		downloadRes := &transferv1.DownloadFileResponse{}
 		downloadRes.SetChunk(chunk)
+		if s.shouldLogChunk(sentChunks, totalChunks) {
+			s.logDebug("sending download chunk=%d/%d bytes=%d", sentChunks, totalChunks, n)
+		}
 
 		if err := stream.Send(downloadRes); err != nil {
 			log.Printf("[Download] Send error: %s \n", err.Error())
+			s.logDebug("send download chunk failed: chunk=%d err=%v", sentChunks, err)
 			return s.sendDownloadError(stream, "file send error")
 		}
 
@@ -464,6 +540,7 @@ func (s *FileService) DownloadFile(in *transferv1.DownloadFileRequest, stream tr
 	speedStr := common.FormatSpeed(speed)
 
 	log.Printf("[Download] Complete: %s, elapsed=%d, sent=%d bytes, speed=%s\n", fileName, elapsed.Milliseconds(), totalSent, speedStr)
+	s.logDebug("download completed successfully: name=%s elapsed_ms=%d sent=%d", fileName, elapsed.Milliseconds(), totalSent)
 
 	// 3. send result
 	return s.sendDownloadSuccess(stream, "download complete")
@@ -471,6 +548,7 @@ func (s *FileService) DownloadFile(in *transferv1.DownloadFileRequest, stream tr
 
 func (s *FileService) ListFiles(ctx context.Context, in *transferv1.ListFilesRequest) (*transferv1.ListFilesResponse, error) {
 	if s.memoryMode {
+		s.logDebug("list files rejected because memory mode is enabled")
 		listRes := &transferv1.ListFilesResponse{}
 		listRes.SetStatus(false)
 		listRes.SetMessage("ListFiles not supported in Memory Mode")
@@ -478,8 +556,10 @@ func (s *FileService) ListFiles(ctx context.Context, in *transferv1.ListFilesReq
 	}
 
 	tag := in.GetTag()
+	s.logDebug("listing files for tag=%s", tag)
 	files, err := common.GetFileList(s.savePath, tag)
 	if err != nil {
+		s.logDebug("list files failed: %v", err)
 		listRes := &transferv1.ListFilesResponse{}
 		listRes.SetStatus(false)
 		listRes.SetMessage("Get file list error: " + err.Error())
@@ -487,6 +567,7 @@ func (s *FileService) ListFiles(ctx context.Context, in *transferv1.ListFilesReq
 	}
 
 	log.Printf("Found %d files under tag %s\n", len(files), tag)
+	s.logDebug("list files succeeded: tag=%s count=%d", tag, len(files))
 
 	listRes := &transferv1.ListFilesResponse{}
 	listRes.SetStatus(true)

@@ -28,6 +28,7 @@ var (
 				Secure:        ServiceWithSecure,
 				SavePath:      savePath,
 				MemoryMode:    memoryMode,
+				Debug:         ServiceDebug,
 			}
 
 			if err := qServer.Run(ctx); err != nil {

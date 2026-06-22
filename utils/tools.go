@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/qmaru/minitools/v2/file"
 	"github.com/qmaru/minitools/v2/hashx/blake3"
@@ -30,4 +31,8 @@ func PrettyHash(h string) string {
 		return h
 	}
 	return h[:8]
+}
+
+func LogDebug(format string, v ...any) {
+	log.Printf("[DEBUG] "+format, v...)
 }

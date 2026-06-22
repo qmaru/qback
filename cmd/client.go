@@ -45,6 +45,7 @@ var (
 				ChunkTimeout:  chunkTimeout,
 				Secure:        ServiceWithSecure,
 				Chunksize:     fileChunk,
+				Debug:         ServiceDebug,
 			}
 
 			if reverse {
@@ -75,6 +76,7 @@ var (
 				ServerAddress: ServiceAddress,
 				ChunkTimeout:  chunkTimeout,
 				Secure:        ServiceWithSecure,
+				Debug:         ServiceDebug,
 			}
 
 			err := qClient.ServerCheck()
@@ -94,6 +96,7 @@ var (
 			qClient := client.ClientBasic{
 				ServerAddress: ServiceAddress,
 				Secure:        ServiceWithSecure,
+				Debug:         ServiceDebug,
 			}
 
 			files, err := qClient.ListFiles(remoteTag)

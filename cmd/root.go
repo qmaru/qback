@@ -12,6 +12,7 @@ import (
 var (
 	ServiceAddress    string
 	ServiceWithSecure bool
+	ServiceDebug      bool
 	rootCmd           = &cobra.Command{
 		Use:     "qback",
 		Short:   "qback is a File Transfer Service",
@@ -37,4 +38,5 @@ func Execute() {
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&ServiceAddress, "address", "a", "127.0.0.1:20000", "Server Address")
 	rootCmd.PersistentFlags().BoolVarP(&ServiceWithSecure, "secure", "s", false, "With TLS")
+	rootCmd.PersistentFlags().BoolVarP(&ServiceDebug, "debug", "d", false, "Enable debug mode")
 }
