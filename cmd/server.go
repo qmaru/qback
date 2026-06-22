@@ -39,6 +39,6 @@ var (
 )
 
 func init() {
-	ServerRoot.Flags().StringVarP(&savePath, "dir", "d", "", "Save Directory")
+	ServerRoot.Flags().StringVarP(&savePath, "output", "o", "", "Output Directory")
 	ServerRoot.Flags().BoolVarP(&memoryMode, "memory", "m", false, "Memory Mode")
 }

@@ -100,8 +100,8 @@ func (c *ClientBasic) connect() (transferv1.FileTransferServiceClient, error) {
 	}
 
 	c.logDebug("timeout=%ds", c.ChunkTimeout)
-	c.logDebug("call options: %+v", callOpt)
-	c.logDebug("dial options: %+v", serverOpt)
+	c.logDebug("call message size=%d Bytes", common.MaxMsgSize)
+	c.logDebug("service config retry:\n%s", common.RetryPolicy)
 
 	conn, err := grpc.NewClient(c.ServerAddress, opts...)
 	if err != nil {
