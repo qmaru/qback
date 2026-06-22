@@ -132,14 +132,14 @@ func (c *ClientBasic) close() {
 	}
 }
 
-func (c *ClientBasic) ServerCheck() error {
+func (c *ClientBasic) ServerCheck(timeout int) error {
 	client, err := c.connect()
 	if err != nil {
 		return err
 	}
 	defer c.close()
 
-	checkCtx, checkCancel := context.WithTimeout(c.ctx, 5*time.Second)
+	checkCtx, checkCancel := context.WithTimeout(c.ctx, time.Duration(timeout)*time.Second)
 	defer checkCancel()
 
 	checkReq := &transferv1.ServerCheckRequest{}

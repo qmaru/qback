@@ -9,10 +9,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var (
-	savePath   string
-	memoryMode bool
-	ServerRoot = &cobra.Command{
+func NewServer() *cobra.Command {
+	var savePath string
+	var memoryMode bool
+
+	cmd := &cobra.Command{
 		Use:   "server",
 		Short: "Run Server",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -36,9 +37,9 @@ var (
 			}
 		},
 	}
-)
 
-func init() {
-	ServerRoot.Flags().StringVarP(&savePath, "output", "o", "", "Output Directory")
-	ServerRoot.Flags().BoolVarP(&memoryMode, "memory", "m", false, "Memory Mode")
+	cmd.Flags().StringVarP(&savePath, "output", "o", "", "Output Directory")
+	cmd.Flags().BoolVarP(&memoryMode, "memory", "m", false, "Memory Mode")
+
+	return cmd
 }

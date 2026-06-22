@@ -12,21 +12,69 @@ import (
 )
 
 var (
-	reverse      bool
-	remoteTag    string
-	remoteName   string
-	localFile    string
-	localDir     string
-	chunkTimeout int
-	fileChunk    int
-	ClientRoot   = &cobra.Command{
+	clientChunkTimeout int
+	clientFileChunk    int
+)
+
+func NewClient() *cobra.Command {
+	cmd := &cobra.Command{
 		Use:   "client",
 		Short: "Run Client",
 		Run: func(cmd *cobra.Command, args []string) {
 			cmd.Help()
 		},
 	}
-	transferCmd = &cobra.Command{
+
+	cmd.PersistentFlags().IntVarP(&clientChunkTimeout, "ct", "", 15, "Connect Timeout")
+	cmd.PersistentFlags().IntVarP(&clientFileChunk, "chunksize", "c", 1048576, "File chunksize [byte]")
+
+	cmd.AddCommand(NewCheckSubCmd())
+	cmd.AddCommand(NewTransferSubCmd())
+	cmd.AddCommand(NewListSubCmd())
+
+	return cmd
+}
+
+func NewCheckSubCmd() *cobra.Command {
+	var timeout int
+
+	cmd := &cobra.Command{
+		Use:   "ping",
+		Short: "Ping Server",
+		Run: func(cmd *cobra.Command, args []string) {
+			startTime := time.Now().UnixMilli()
+
+			qClient := client.ClientBasic{
+				ServerAddress: ServiceAddress,
+				ChunkTimeout:  clientChunkTimeout,
+				Secure:        ServiceWithSecure,
+				Debug:         ServiceDebug,
+			}
+
+			err := qClient.ServerCheck(timeout)
+			if err != nil {
+				log.Printf("Server is down: %s\n", err.Error())
+			} else {
+				endTime := time.Now().UnixMilli()
+				delay := endTime - startTime
+				log.Printf("Server is up [%d ms]\n", delay)
+			}
+		},
+	}
+
+	cmd.Flags().IntVarP(&timeout, "timeout", "t", 10, "Timeout for server check [second]")
+
+	return cmd
+}
+
+func NewTransferSubCmd() *cobra.Command {
+	var reverse bool
+	var remoteTag string
+	var remoteName string
+	var localFile string
+	var localDir string
+
+	cmd := &cobra.Command{
 		Use:   "transfer",
 		Short: "Transfer file",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -42,9 +90,9 @@ var (
 
 			qClient := client.ClientBasic{
 				ServerAddress: ServiceAddress,
-				ChunkTimeout:  chunkTimeout,
+				ChunkTimeout:  clientChunkTimeout,
 				Secure:        ServiceWithSecure,
-				Chunksize:     fileChunk,
+				Chunksize:     clientFileChunk,
 				Debug:         ServiceDebug,
 			}
 
@@ -66,30 +114,22 @@ var (
 			log.Println(result)
 		},
 	}
-	pingCmd = &cobra.Command{
-		Use:   "ping",
-		Short: "Ping Server",
-		Run: func(cmd *cobra.Command, args []string) {
-			startTime := time.Now().UnixMilli()
 
-			qClient := client.ClientBasic{
-				ServerAddress: ServiceAddress,
-				ChunkTimeout:  chunkTimeout,
-				Secure:        ServiceWithSecure,
-				Debug:         ServiceDebug,
-			}
+	cmd.Flags().StringVarP(&remoteTag, "tag", "t", "", "Remote tag")
+	cmd.Flags().StringVarP(&remoteName, "name", "n", "", "Remote file name")
+	cmd.Flags().StringVarP(&localFile, "file", "f", "", "Local file")
+	cmd.Flags().StringVarP(&localDir, "dir", "d", "", "Local directory")
+	cmd.Flags().BoolVarP(&reverse, "reverse", "r", false, "Reverse transfer (server to client)")
+	cmd.MarkFlagRequired("tag")
 
-			err := qClient.ServerCheck()
-			if err != nil {
-				log.Printf("Server is down: %s\n", err.Error())
-			} else {
-				endTime := time.Now().UnixMilli()
-				delay := endTime - startTime
-				log.Printf("Server is up [%d ms]\n", delay)
-			}
-		},
-	}
-	listCmd = &cobra.Command{
+	return cmd
+
+}
+
+func NewListSubCmd() *cobra.Command {
+	var remoteTag string
+
+	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List server files",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -122,23 +162,9 @@ var (
 			fmt.Println("<<")
 		},
 	}
-)
 
-func init() {
-	ClientRoot.PersistentFlags().IntVarP(&chunkTimeout, "ct", "", 10, "Connect Timeout")
-	ClientRoot.PersistentFlags().IntVarP(&fileChunk, "chunksize", "c", 1048576, "File chunksize [byte]")
+	cmd.Flags().StringVarP(&remoteTag, "tag", "t", "", "Source tag")
+	cmd.MarkFlagRequired("tag")
 
-	transferCmd.Flags().StringVarP(&remoteTag, "tag", "t", "", "Remote tag")
-	transferCmd.Flags().StringVarP(&remoteName, "name", "n", "", "Remote file name")
-	transferCmd.Flags().StringVarP(&localFile, "file", "f", "", "Local file")
-	transferCmd.Flags().StringVarP(&localDir, "dir", "d", "", "Local directory")
-	transferCmd.Flags().BoolVarP(&reverse, "reverse", "r", false, "Reverse transfer (server to client)")
-	transferCmd.MarkFlagRequired("tag")
-
-	listCmd.Flags().StringVarP(&remoteTag, "tag", "t", "", "Source tag")
-	listCmd.MarkFlagRequired("tag")
-
-	ClientRoot.AddCommand(transferCmd)
-	ClientRoot.AddCommand(pingCmd)
-	ClientRoot.AddCommand(listCmd)
+	return cmd
 }

@@ -41,7 +41,7 @@ func TestServer(t *testing.T) {
 		case <-timeout:
 			t.Fatal("server did not start in time")
 		case <-tick:
-			if err := qClient.ServerCheck(); err == nil {
+			if err := qClient.ServerCheck(30); err == nil {
 				t.Logf("Server is healthy")
 				return
 			}

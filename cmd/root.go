@@ -13,7 +13,10 @@ var (
 	ServiceAddress    string
 	ServiceWithSecure bool
 	ServiceDebug      bool
-	rootCmd           = &cobra.Command{
+)
+
+func NewCmd() *cobra.Command {
+	cmd := &cobra.Command{
 		Use:     "qback",
 		Short:   "qback is a File Transfer Service",
 		Version: utils.VERSION,
@@ -21,22 +24,20 @@ var (
 			cmd.Help()
 		},
 	}
-)
+
+	cmd.PersistentFlags().StringVarP(&ServiceAddress, "address", "a", "127.0.0.1:20000", "Server Address")
+	cmd.PersistentFlags().BoolVarP(&ServiceWithSecure, "secure", "s", false, "With TLS")
+	cmd.PersistentFlags().BoolVarP(&ServiceDebug, "debug", "d", false, "Enable debug mode")
+
+	cmd.CompletionOptions.DisableDefaultCmd = true
+	cmd.AddCommand(NewServer(), NewClient())
+
+	return cmd
+}
 
 func Execute() {
-	rootCmd.CompletionOptions.DisableDefaultCmd = true
-	rootCmd.AddCommand(
-		ServerRoot,
-		ClientRoot,
-	)
-	if err := rootCmd.Execute(); err != nil {
+	if err := NewCmd().Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-}
-
-func init() {
-	rootCmd.PersistentFlags().StringVarP(&ServiceAddress, "address", "a", "127.0.0.1:20000", "Server Address")
-	rootCmd.PersistentFlags().BoolVarP(&ServiceWithSecure, "secure", "s", false, "With TLS")
-	rootCmd.PersistentFlags().BoolVarP(&ServiceDebug, "debug", "d", false, "Enable debug mode")
 }
